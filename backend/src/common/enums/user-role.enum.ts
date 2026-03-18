@@ -1,0 +1,6 @@
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  TRANSPORTISTA = 'TRANSPORTISTA',
+  ENC_ORIGEN = 'ENC_ORIGEN',
+  ENC_DESTINO = 'ENC_DESTINO',
+}

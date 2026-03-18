@@ -1,0 +1,17 @@
+export enum NotificationType {
+  ASIGNACION = 'ASIGNACION',
+  PREPARACION = 'PREPARACION',
+  EN_RUTA = 'EN_RUTA',
+  LLEGADA = 'LLEGADA',
+  RECEPCION = 'RECEPCION',
+  DISCREPANCIA = 'DISCREPANCIA',
+  CANCELACION = 'CANCELACION',
+  SISTEMA = 'SISTEMA',
+}
+
+export enum NotificationPriority {
+  LOW = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT',
+}
