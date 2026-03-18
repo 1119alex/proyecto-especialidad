@@ -1,10 +1,42 @@
 // User types
+export type UserRole = 'ADMIN' | 'TRANSPORTISTA' | 'ENC_ORIGEN' | 'ENC_DESTINO';
+
 export interface User {
   id: number;
-  name: string;
   email: string;
-  role: 'ADMIN' | 'TRANSPORTISTA' | 'ENC_ORIGEN' | 'ENC_DESTINO';
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: UserRole;
+  isActive: boolean;
+  lastLogin?: Date;
   createdAt: Date;
+  updatedAt: Date;
+  name?: string; // Computed field para compatibilidad
+}
+
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: UserRole;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+  warehouseId?: number;
+}
+
+export interface UpdateUserDto {
+  email?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  role?: UserRole;
+  licenseNumber?: string;
+  licenseExpiry?: string;
+  warehouseId?: number;
 }
 
 export interface LoginCredentials {
@@ -20,30 +52,91 @@ export interface AuthResponse {
 // Warehouse types
 export interface Warehouse {
   id: number;
+  code: string;
   name: string;
   address: string;
   city: string;
+  phone?: string;
+  managerName?: string;
+  latitude: number;
+  longitude: number;
+  geofenceRadius: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateWarehouseDto {
+  name: string;
+  address: string;
   latitude: number;
   longitude: number;
 }
 
+export interface UpdateWarehouseDto {
+  name?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 // Vehicle types
+export type VehicleStatus = 'DISPONIBLE' | 'EN_USO' | 'MANTENIMIENTO' | 'FUERA_SERVICIO';
+
 export interface Vehicle {
   id: number;
-  plate: string;
+  licensePlate: string;
+  model: string;
+  year?: number;
+  capacity: number;
+  status: VehicleStatus;
+  isAvailable: boolean;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateVehicleDto {
+  licensePlate: string;
   model: string;
   capacity: number;
-  available: boolean;
-  driverProfileId?: number;
+  status?: VehicleStatus;
+}
+
+export interface UpdateVehicleDto {
+  licensePlate?: string;
+  model?: string;
+  capacity?: number;
+  status?: VehicleStatus;
 }
 
 // Product types
 export interface Product {
   id: number;
+  sku: string;
+  barcode?: string;
+  name: string;
+  description?: string;
+  category?: string;
+  unit: string;
+  minStock: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateProductDto {
   name: string;
   sku: string;
-  unit: string;
   description?: string;
+  unit: string;
+}
+
+export interface UpdateProductDto {
+  name?: string;
+  sku?: string;
+  description?: string;
+  unit?: string;
 }
 
 // Transfer types

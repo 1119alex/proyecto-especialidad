@@ -23,8 +23,17 @@ const Sidebar: React.FC = () => {
       ),
     },
     {
-      path: '/transfers',
-      label: 'Transferencias',
+      path: '/warehouses',
+      label: 'Almacenes',
+      icon: (
+        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 10-2 0v1H8a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      path: '/vehicles',
+      label: 'Vehículos',
       icon: (
         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
           <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
@@ -33,30 +42,20 @@ const Sidebar: React.FC = () => {
       ),
     },
     {
-      path: '/trucks',
-      label: 'Camiones',
+      path: '/products',
+      label: 'Productos',
       icon: (
         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 10-2 0v1H8a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+          <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
         </svg>
       ),
     },
     {
-      path: '/tracking',
-      label: 'Seguimiento',
+      path: '/users',
+      label: 'Usuarios',
       icon: (
         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-        </svg>
-      ),
-    },
-    {
-      path: '/reports',
-      label: 'Reportes',
-      icon: (
-        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-          <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
         </svg>
       ),
     },

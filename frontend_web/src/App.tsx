@@ -4,6 +4,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/auth/Login';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
+import Warehouses from './pages/Warehouses';
+import Vehicles from './pages/Vehicles';
+import Products from './pages/Products';
+import Users from './pages/Users';
 
 function App() {
   return (
@@ -19,6 +23,38 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/warehouses"
+            element={
+              <ProtectedRoute>
+                <Warehouses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vehicles"
+            element={
+              <ProtectedRoute>
+                <Vehicles />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/products"
+            element={
+              <ProtectedRoute>
+                <Products />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <Users />
               </ProtectedRoute>
             }
           />
