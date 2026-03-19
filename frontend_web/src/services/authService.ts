@@ -3,13 +3,19 @@ import { LoginCredentials, AuthResponse, User } from '../types';
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login', credentials);
+    const response = await api.post<any>('/auth/login', credentials);
+
+    // El backend devuelve 'accessToken', lo mapeamos a 'token'
+    const token = response.data.accessToken;
 
     // Guardar token y usuario en localStorage
-    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(response.data.user));
 
-    return response.data;
+    return {
+      token,
+      user: response.data.user,
+    };
   },
 
   logout: () => {

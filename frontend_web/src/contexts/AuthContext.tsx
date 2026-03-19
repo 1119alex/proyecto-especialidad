@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     login,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user || !!authService.getToken(),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
