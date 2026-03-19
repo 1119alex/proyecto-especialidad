@@ -1,0 +1,36 @@
+targets:
+  $default:
+    builders:
+      # Riverpod code generation
+      riverpod_generator:
+        generate_for:
+          - lib/**/*.dart
+        options:
+          # Genera archivos .g.dart para Riverpod
+          line_length: 80
+
+      # Drift code generation
+      drift_dev:
+        enabled: true
+        options:
+          # Genera código SQL type-safe
+          store_date_time_values_as_text: true
+          sql:
+            dialect: sqlite
+
+      # JSON Serialization
+      json_serializable:
+        generate_for:
+          - lib/shared/models/**/*.dart
+          - lib/features/**/data/models/**/*.dart
+        options:
+          explicit_to_json: true
+          field_rename: snake
+
+      # Freezed (immutable models)
+      freezed:
+        generate_for:
+          - lib/shared/models/**/*.dart
+          - lib/features/**/domain/entities/**/*.dart
+        options:
+          union_key: type
