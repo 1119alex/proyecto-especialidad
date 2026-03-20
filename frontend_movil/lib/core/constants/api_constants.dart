@@ -3,9 +3,13 @@ class ApiConstants {
   ApiConstants._();
 
   // Base URLs
-  static const String baseUrl = 'http://localhost:3000'; // TODO: Cambiar a URL de producción
-  static const String baseUrlDev = 'http://localhost:3000';
-  static const String baseUrlProd = 'https://api-production.com'; // TODO: Configurar
+  // IMPORTANTE:
+  // - Para emulador Android: usar 10.0.2.2 (apunta a localhost de tu PC)
+  // - Para dispositivo físico: usar tu IP local (ej: 192.168.1.100)
+  // - Para iOS simulator: usar localhost o 127.0.0.1
+  static const String baseUrl = 'http://10.0.2.2:3000/api/v1'; // Emulador Android
+  static const String baseUrlDev = 'http://10.0.2.2:3000/api/v1';
+  static const String baseUrlProd = 'https://api-production.com/api/v1'; // TODO: Configurar
 
   // API Endpoints
   static const String authEndpoint = '/auth';

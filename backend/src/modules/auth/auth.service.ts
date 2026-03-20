@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +12,8 @@ import { UserRole } from '../../common/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -21,6 +23,8 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
+    this.logger.log(`Intento de login: ${email}`);
+
     // Buscar usuario por email
     const user = await this.userRepository.findOne({
       where: { email },
@@ -28,11 +32,13 @@ export class AuthService {
     });
 
     if (!user) {
+      this.logger.warn(`Login fallido: Usuario no encontrado - ${email}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // Verificar que el usuario esté activo
     if (!user.isActive) {
+      this.logger.warn(`Login fallido: Usuario inactivo - ${email}`);
       throw new UnauthorizedException('Usuario inactivo');
     }
 
@@ -40,6 +46,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+      this.logger.warn(`Login fallido: Contraseña incorrecta - ${email}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -51,6 +58,9 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+
+    // Log de login exitoso
+    this.logger.log(`✅ Login exitoso: ${email} | Rol: ${user.role} | ID: ${user.id} | Nombre: ${user.firstName} ${user.lastName}`);
 
     // Preparar respuesta
     const response: AuthResponseDto = {
@@ -68,6 +78,7 @@ export class AuthService {
     if (user.warehouseStaffProfile?.warehouse) {
       response.user.warehouseId = user.warehouseStaffProfile.warehouse.id;
       response.user.warehouseName = user.warehouseStaffProfile.warehouse.name;
+      this.logger.log(`  └─ Almacén asignado: ${user.warehouseStaffProfile.warehouse.name} (ID: ${user.warehouseStaffProfile.warehouse.id})`);
     }
 
     return response;
@@ -104,12 +115,15 @@ export class AuthService {
   }
 
   async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
+    this.logger.log(`Intento de registro de administrador: ${registerAdminDto.email}`);
+
     // Verificar si ya existe algún administrador
     const existingAdmin = await this.userRepository.findOne({
       where: { role: UserRole.ADMIN },
     });
 
     if (existingAdmin) {
+      this.logger.warn(`Registro de admin fallido: Ya existe un administrador`);
       throw new ForbiddenException(
         'Ya existe un administrador registrado. Use el endpoint de creación de usuarios autenticado.',
       );
@@ -121,6 +135,7 @@ export class AuthService {
     });
 
     if (existingUser) {
+      this.logger.warn(`Registro de admin fallido: Email ya registrado - ${registerAdminDto.email}`);
       throw new ConflictException('El email ya está registrado');
     }
 
@@ -139,6 +154,8 @@ export class AuthService {
     admin.isActive = true;
 
     const savedAdmin = await this.userRepository.save(admin);
+
+    this.logger.log(`🎉 Administrador registrado exitosamente: ${savedAdmin.email} | ID: ${savedAdmin.id} | Nombre: ${savedAdmin.firstName} ${savedAdmin.lastName}`);
 
     // Generar token JWT
     const payload: JwtPayload = {

@@ -3,10 +3,14 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/home_screen.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
   // Auth
+  static const String splash = '/splash';
   static const String login = '/login';
 
   // Home/Dashboard
@@ -40,10 +44,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.splash,
     redirect: (context, state) {
       final isAuthenticated = authState.value?.isAuthenticated ?? false;
+      final isSplashRoute = state.matchedLocation == AppRoutes.splash;
       final isLoginRoute = state.matchedLocation == AppRoutes.login;
+
+      // Permitir splash siempre
+      if (isSplashRoute) {
+        return null;
+      }
 
       // Si no está autenticado y no está en login, redirigir a login
       if (!isAuthenticated && !isLoginRoute) {
@@ -58,6 +68,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Splash
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
+
       // Login
       GoRoute(
         path: AppRoutes.login,
@@ -197,17 +213,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 // Placeholders para las pantallas (se crearán después)
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Login Screen')));
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Home Screen')));
-}
+// LoginScreen, SplashScreen y HomeScreen están importados desde features/auth
 
 class TransfersListScreen extends StatelessWidget {
   const TransfersListScreen({super.key});

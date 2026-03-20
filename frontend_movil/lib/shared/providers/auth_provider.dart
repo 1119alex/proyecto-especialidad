@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../services/api/api_client_provider.dart';
 import 'secure_storage_provider.dart';
 import '../../core/constants/api_constants.dart';
+import '../../features/auth/data/models/login_response_model.dart';
 
 part 'auth_provider.g.dart';
 
@@ -83,21 +84,21 @@ class Auth extends _$Auth {
         },
       );
 
-      final token = response.data['access_token'] as String;
-      final user = response.data['user'] as Map<String, dynamic>;
-      final role = user['role'] as String;
-      final userId = user['id'] as int;
+      // Parsear la respuesta usando el modelo
+      final loginResponse = LoginResponseModel.fromJson(
+        response.data as Map<String, dynamic>,
+      );
 
       // Guardar en secure storage
-      await storageManager.saveToken(token);
-      await storageManager.saveUserRole(role);
-      await storageManager.saveUserId(userId.toString());
+      await storageManager.saveToken(loginResponse.accessToken);
+      await storageManager.saveUserRole(loginResponse.user.role);
+      await storageManager.saveUserId(loginResponse.user.id.toString());
 
       return AuthState(
         isAuthenticated: true,
-        token: token,
-        userRole: role,
-        userId: userId,
+        token: loginResponse.accessToken,
+        userRole: loginResponse.user.role,
+        userId: loginResponse.user.id,
       );
     });
   }
