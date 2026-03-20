@@ -25,6 +25,30 @@ class _MainAppState extends ConsumerState<MainApp> {
   @override
   void initState() {
     super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // Inicializar FCM
+    final fcmService = ref.read(fcmServiceProvider);
+    await fcmService.initialize();
+
+    // Configurar handlers de notificaciones
+    fcmService.setupNotificationHandlers(
+      onMessageReceived: (message) {
+        // Mostrar notificación local cuando la app está en primer plano
+        if (mounted) {
+          fcmService.showLocalNotification(context, message);
+        }
+      },
+      onNotificationTapped: (message) {
+        // Navegar a la pantalla correspondiente según el tipo de notificación
+        final data = fcmService.parseNotificationData(message);
+        if (data.transferId != null) {
+          ref.read(routerProvider).go('/transfers/${data.transferId}');
+        }
+      },
+    );
   }
 
   @override
