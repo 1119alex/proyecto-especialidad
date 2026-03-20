@@ -41,11 +41,11 @@ class AppRoutes {
 
 /// Provider del router
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-
   return GoRouter(
     initialLocation: AppRoutes.splash,
     redirect: (context, state) {
+      // Usar ref.read para evitar rebuilds innecesarios del router
+      final authState = ref.read(authProvider);
       final isAuthenticated = authState.value?.isAuthenticated ?? false;
       final isSplashRoute = state.matchedLocation == AppRoutes.splash;
       final isLoginRoute = state.matchedLocation == AppRoutes.login;

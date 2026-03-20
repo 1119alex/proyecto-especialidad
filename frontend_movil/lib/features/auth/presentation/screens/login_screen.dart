@@ -32,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Ejecutar login - esto lanzará excepción si falla
       await ref.read(authProvider.notifier).login(
             _emailController.text.trim(),
             _passwordController.text,
@@ -39,22 +40,91 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      // Login exitoso, navegar al home
-      context.go(AppRoutes.home);
-    } catch (e) {
-      if (!mounted) return;
+      setState(() => _isLoading = false);
 
-      // Mostrar error
+      // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '¡Inicio de sesión exitoso!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade600,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+
+      // Esperar un momento para que el usuario vea el mensaje
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      if (!mounted) return;
+
+      // Navegar al home
+      context.go(AppRoutes.home);
+    } catch (e) {
+      // Capturar y mostrar el error
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      String errorMessage = 'Error de inicio de sesión';
+      final errorString = e.toString();
+
+      if (errorString.contains('Credenciales inválidas')) {
+        errorMessage = 'Email o contraseña incorrectos';
+      } else if (errorString.contains('Usuario no encontrado')) {
+        errorMessage = 'Usuario no encontrado';
+      } else if (errorString.contains('conexión') ||
+          errorString.contains('Connection') ||
+          errorString.contains('SocketException')) {
+        errorMessage = 'Error de conexión. Verifica tu internet';
+      } else if (errorString.contains('timeout') ||
+          errorString.contains('Timeout')) {
+        errorMessage = 'Tiempo de espera agotado';
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  errorMessage,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
     }
   }
 

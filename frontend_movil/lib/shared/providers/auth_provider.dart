@@ -1,8 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../services/api/api_client_provider.dart';
 import 'secure_storage_provider.dart';
-import '../../core/constants/api_constants.dart';
-import '../../features/auth/data/models/login_response_model.dart';
+import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 
 part 'auth_provider.g.dart';
 
@@ -44,7 +43,7 @@ class AuthState {
 }
 
 /// Provider de autenticación
-@riverpod
+@Riverpod(keepAlive: true)
 class Auth extends _$Auth {
   @override
   Future<AuthState> build() async {
@@ -68,25 +67,21 @@ class Auth extends _$Auth {
     return const AuthState();
   }
 
-  /// Login
+  /// Login - Lanza excepciones para que el UI las maneje
   Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
 
-    state = await AsyncValue.guard(() async {
+    try {
       final apiClient = ref.read(apiClientProvider);
       final storageManager = ref.read(secureStorageManagerProvider.notifier);
 
-      final response = await apiClient.post(
-        ApiConstants.loginEndpoint,
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
+      // Crear datasource
+      final datasource = AuthRemoteDatasource(apiClient: apiClient);
 
-      // Parsear la respuesta usando el modelo
-      final loginResponse = LoginResponseModel.fromJson(
-        response.data as Map<String, dynamic>,
+      // Realizar login usando el datasource (esto lanzará excepciones específicas)
+      final loginResponse = await datasource.login(
+        email: email,
+        password: password,
       );
 
       // Guardar en secure storage
@@ -94,13 +89,19 @@ class Auth extends _$Auth {
       await storageManager.saveUserRole(loginResponse.user.role);
       await storageManager.saveUserId(loginResponse.user.id.toString());
 
-      return AuthState(
+      // Actualizar estado exitosamente
+      state = AsyncValue.data(AuthState(
         isAuthenticated: true,
         token: loginResponse.accessToken,
         userRole: loginResponse.user.role,
         userId: loginResponse.user.id,
-      );
-    });
+      ));
+    } catch (error, stackTrace) {
+      // Actualizar estado con error
+      state = AsyncValue.error(error, stackTrace);
+      // RE-LANZAR la excepción para que el UI la capture
+      rethrow;
+    }
   }
 
   /// Logout

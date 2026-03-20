@@ -31,9 +31,9 @@ class ApiConstants {
   static const String verifyQREndpoint = '/verify-qr';
   static const String trackingEndpoint = '/tracking';
 
-  // Timeouts
-  static const Duration connectionTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  // Timeouts - Reducidos para mejor experiencia de usuario
+  static const Duration connectionTimeout = Duration(seconds: 10);
+  static const Duration receiveTimeout = Duration(seconds: 10);
 
   // Retry configuration
   static const int maxRetries = 3;

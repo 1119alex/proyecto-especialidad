@@ -8,7 +8,6 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO: Configurar Firebase después
   // Inicializar Firebase
   // await Firebase.initializeApp();
 
@@ -23,7 +22,6 @@ class MainApp extends ConsumerStatefulWidget {
 }
 
 class _MainAppState extends ConsumerState<MainApp> {
-  // TODO: Descomentar cuando se configure Firebase
   // @override
   // void initState() {
   //   super.initState();

@@ -8,7 +8,10 @@ targets:
 
       # Drift code generation
       drift_dev:
-        enabled: false  # Temporalmente deshabilitado - causa conflictos con otros archivos
+        enabled: true
+        generate_for:
+          - lib/config/drift/database.dart
+          - lib/config/drift/tables/*.dart
         options:
           store_date_time_values_as_text: true
           sql:

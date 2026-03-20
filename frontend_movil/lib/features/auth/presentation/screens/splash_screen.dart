@@ -20,8 +20,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _checkAuthStatus() async {
-    // Esperar 2 segundos para mostrar el splash
-    await Future.delayed(const Duration(seconds: 2));
+    // Mínimo delay para mostrar el logo (solo animación visual)
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
 
