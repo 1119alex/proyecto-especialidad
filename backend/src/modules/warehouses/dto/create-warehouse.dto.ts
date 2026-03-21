@@ -1,6 +1,10 @@
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateWarehouseDto {
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -8,6 +12,18 @@ export class CreateWarehouseDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsNumber()
+  @IsOptional()
+  managerId?: number;
 
   @IsNumber()
   @IsNotEmpty()

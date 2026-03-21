@@ -33,6 +33,11 @@ export class WarehousesController {
     return this.warehousesService.findAll();
   }
 
+  @Get('managers/available')
+  getAvailableManagers() {
+    return this.warehousesService.getAvailableManagers();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.warehousesService.findOne(id);

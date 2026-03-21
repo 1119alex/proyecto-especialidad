@@ -40,7 +40,7 @@ export class TransfersController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENC_ORIGEN, UserRole.ENC_DESTINO)
+  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.transfersService.findOne(id);
   }

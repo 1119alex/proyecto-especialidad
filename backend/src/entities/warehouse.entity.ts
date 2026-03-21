@@ -30,9 +30,6 @@ export class Warehouse {
   @Column({ length: 20, nullable: true })
   phone: string;
 
-  @Column({ name: 'manager_name', length: 100, nullable: true })
-  managerName: string;
-
   @Column({ type: 'decimal', precision: 10, scale: 8 })
   latitude: number;
 

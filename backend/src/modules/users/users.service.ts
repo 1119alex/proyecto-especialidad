@@ -35,6 +35,15 @@ export class UsersService {
       throw new ConflictException('El email ya está registrado');
     }
 
+    // Validar datos según el rol ANTES de crear el usuario
+    if (createUserDto.role === UserRole.TRANSPORTISTA) {
+      if (!createUserDto.licenseNumber || !createUserDto.licenseExpiry) {
+        throw new BadRequestException(
+          'Los conductores requieren número de licencia y fecha de expiración',
+        );
+      }
+    }
+
     // Hash de la contraseña
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(createUserDto.password, saltRounds);
@@ -53,32 +62,13 @@ export class UsersService {
 
     // Crear perfil según el rol
     if (createUserDto.role === UserRole.TRANSPORTISTA) {
-      if (!createUserDto.licenseNumber || !createUserDto.licenseExpiry) {
-        throw new BadRequestException(
-          'Los conductores requieren número de licencia y fecha de expiración',
-        );
-      }
-
       await this.driverProfileRepository.save({
         userId: savedUser.id,
-        licenseNumber: createUserDto.licenseNumber,
-        licenseExpiry: new Date(createUserDto.licenseExpiry),
-      });
-    } else if (
-      createUserDto.role === UserRole.ENC_ORIGEN ||
-      createUserDto.role === UserRole.ENC_DESTINO
-    ) {
-      if (!createUserDto.warehouseId) {
-        throw new BadRequestException(
-          'Los encargados de almacén requieren un almacén asignado',
-        );
-      }
-
-      await this.warehouseStaffRepository.save({
-        userId: savedUser.id,
-        warehouseId: createUserDto.warehouseId,
+        licenseNumber: createUserDto.licenseNumber!,
+        licenseExpiry: new Date(createUserDto.licenseExpiry!),
       });
     }
+    // Nota: Los encargados de almacén se asignan a través del formulario de almacenes
 
     return this.findOne(savedUser.id);
   }
@@ -168,7 +158,7 @@ export class UsersService {
 
     // Actualizar perfil de encargado de almacén si es necesario
     if (
-      (user.role === UserRole.ENC_ORIGEN || user.role === UserRole.ENC_DESTINO) &&
+      user.role === UserRole.ENCARGADO_ALMACEN &&
       updateUserDto.warehouseId
     ) {
       const warehouseStaff = await this.warehouseStaffRepository.findOne({
@@ -212,8 +202,8 @@ export class UsersService {
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.warehouseStaffProfile', 'profile')
       .leftJoinAndSelect('profile.warehouse', 'warehouse')
-      .where('user.role IN (:...roles)', {
-        roles: [UserRole.ENC_ORIGEN, UserRole.ENC_DESTINO],
+      .where('user.role = :role', {
+        role: UserRole.ENCARGADO_ALMACEN,
       })
       .andWhere('user.isActive = :isActive', { isActive: true })
       .select([

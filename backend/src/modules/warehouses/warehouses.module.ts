@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WarehousesService } from './warehouses.service';
 import { WarehousesController } from './warehouses.controller';
 import { Warehouse } from '../../entities/warehouse.entity';
+import { WarehouseStaffProfile } from '../../entities/warehouse-staff-profile.entity';
+import { User } from '../../entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Warehouse])],
+  imports: [TypeOrmModule.forFeature([Warehouse, WarehouseStaffProfile, User])],
   controllers: [WarehousesController],
   providers: [WarehousesService],
   exports: [WarehousesService],
