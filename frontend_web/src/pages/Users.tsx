@@ -20,11 +20,14 @@ const Users: React.FC = () => {
 
       if (filter === 'TRANSPORTISTA') {
         data = await userService.getDrivers();
-      } else if (filter === 'ENC_ORIGEN' || filter === 'ENC_DESTINO') {
+      } else if (filter === 'ENCARGADO_ALMACEN') {
         data = await userService.getWarehouseStaff();
-        data = data.filter(u => u.role === filter);
-      } else {
+      } else if (filter === 'ALL') {
         data = await userService.getAll();
+      } else {
+        // Filter by specific role (ADMIN)
+        data = await userService.getAll();
+        data = data.filter(u => u.role === filter);
       }
 
       setUsers(Array.isArray(data) ? data : []);
@@ -70,15 +73,13 @@ const Users: React.FC = () => {
     const roleColors = {
       ADMIN: 'bg-purple-100 text-purple-800',
       TRANSPORTISTA: 'bg-blue-100 text-blue-800',
-      ENC_ORIGEN: 'bg-green-100 text-green-800',
-      ENC_DESTINO: 'bg-orange-100 text-orange-800',
+      ENCARGADO_ALMACEN: 'bg-green-100 text-green-800',
     };
 
     const roleLabels = {
       ADMIN: 'Administrador',
       TRANSPORTISTA: 'Transportista',
-      ENC_ORIGEN: 'Enc. Origen',
-      ENC_DESTINO: 'Enc. Destino',
+      ENCARGADO_ALMACEN: 'Enc. Almacén',
     };
 
     return (
@@ -136,24 +137,14 @@ const Users: React.FC = () => {
               Transportistas
             </button>
             <button
-              onClick={() => setFilter('ENC_ORIGEN')}
+              onClick={() => setFilter('ENCARGADO_ALMACEN')}
               className={`px-4 py-2 rounded-lg transition ${
-                filter === 'ENC_ORIGEN'
+                filter === 'ENCARGADO_ALMACEN'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Enc. Origen
-            </button>
-            <button
-              onClick={() => setFilter('ENC_DESTINO')}
-              className={`px-4 py-2 rounded-lg transition ${
-                filter === 'ENC_DESTINO'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Enc. Destino
+              Encargados de Almacén
             </button>
           </div>
         </div>

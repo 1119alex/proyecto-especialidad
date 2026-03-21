@@ -1,5 +1,5 @@
 import api from './api';
-import { Warehouse, CreateWarehouseDto, UpdateWarehouseDto } from '../types';
+import { Warehouse, CreateWarehouseDto, UpdateWarehouseDto, User } from '../types';
 
 export const warehouseService = {
   // Obtener todos los almacenes
@@ -11,6 +11,12 @@ export const warehouseService = {
   // Obtener un almacén por ID
   getById: async (id: number): Promise<Warehouse> => {
     const response = await api.get<Warehouse>(`/warehouses/${id}`);
+    return response.data;
+  },
+
+  // Obtener encargados disponibles (sin asignar a ningún almacén)
+  getAvailableManagers: async (): Promise<User[]> => {
+    const response = await api.get<User[]>('/warehouses/managers/available');
     return response.data;
   },
 

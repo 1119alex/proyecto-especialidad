@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'ADMIN' | 'TRANSPORTISTA' | 'ENC_ORIGEN' | 'ENC_DESTINO';
+export type UserRole = 'ADMIN' | 'TRANSPORTISTA' | 'ENCARGADO_ALMACEN';
 
 export interface User {
   id: number;
@@ -50,6 +50,13 @@ export interface AuthResponse {
 }
 
 // Warehouse types
+export interface WarehouseStaffProfile {
+  id: number;
+  userId: number;
+  warehouseId: number;
+  user?: User;
+}
+
 export interface Warehouse {
   id: number;
   code: string;
@@ -57,25 +64,33 @@ export interface Warehouse {
   address: string;
   city: string;
   phone?: string;
-  managerName?: string;
   latitude: number;
   longitude: number;
   geofenceRadius: number;
   isActive: boolean;
+  staff?: WarehouseStaffProfile[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface CreateWarehouseDto {
+  code: string;
   name: string;
   address: string;
+  city: string;
+  phone?: string;
+  managerId?: number;
   latitude: number;
   longitude: number;
 }
 
 export interface UpdateWarehouseDto {
+  code?: string;
   name?: string;
   address?: string;
+  city?: string;
+  phone?: string;
+  managerId?: number;
   latitude?: number;
   longitude?: number;
 }

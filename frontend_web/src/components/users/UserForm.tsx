@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
-import { warehouseService } from '../../services/warehouseService';
-import { User, CreateUserDto, UserRole, Warehouse } from '../../types';
+import { User, CreateUserDto, UserRole } from '../../types';
 
 interface UserFormProps {
   user: User | null;
@@ -17,12 +16,10 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
     phone: '',
     role: 'TRANSPORTISTA',
   });
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    loadWarehouses();
     if (user) {
       setFormData({
         email: user.email,
@@ -35,20 +32,11 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
     }
   }, [user]);
 
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll();
-      setWarehouses(data);
-    } catch (err) {
-      console.error('Error loading warehouses:', err);
-    }
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'warehouseId' ? (value ? parseInt(value) : undefined) : value,
+      [name]: value,
     }));
   };
 
@@ -77,7 +65,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
   };
 
   const showDriverFields = formData.role === 'TRANSPORTISTA';
-  const showWarehouseFields = formData.role === 'ENC_ORIGEN' || formData.role === 'ENC_DESTINO';
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -183,8 +170,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
               >
                 <option value="ADMIN">Administrador</option>
                 <option value="TRANSPORTISTA">Transportista</option>
-                <option value="ENC_ORIGEN">Encargado de Origen</option>
-                <option value="ENC_DESTINO">Encargado de Destino</option>
+                <option value="ENCARGADO_ALMACEN">Encargado de Almacén</option>
               </select>
             </div>
 
@@ -243,36 +229,11 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
             </div>
           )}
 
-          {/* Campos específicos para Encargados de Almacén */}
-          {showWarehouseFields && (
-            <div className="border-t pt-4 mt-4">
-              <h4 className="text-lg font-semibold mb-3 text-gray-800">Asignación de Almacén</h4>
-              <div>
-                <label htmlFor="warehouseId" className="block text-sm font-medium text-gray-700 mb-1">
-                  Almacén Asignado
-                </label>
-                <select
-                  id="warehouseId"
-                  name="warehouseId"
-                  value={formData.warehouseId || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Seleccionar almacén...</option>
-                  {warehouses.map((warehouse) => (
-                    <option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name} - {warehouse.city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
             <p className="text-sm text-blue-800">
               <strong>Nota:</strong> Los usuarios con rol de Administrador tienen acceso completo al sistema.
-              Los Transportistas, Encargados de Origen y Destino tienen permisos limitados según su rol.
+              Los Transportistas y Encargados de Almacén tienen permisos limitados según su rol.
+              Para asignar un Encargado a un almacén, debe hacerlo desde el formulario de creación/edición de almacenes.
             </p>
           </div>
 

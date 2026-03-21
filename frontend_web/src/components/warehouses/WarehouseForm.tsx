@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { warehouseService } from '../../services/warehouseService';
-import { Warehouse, CreateWarehouseDto } from '../../types';
+import { Warehouse, CreateWarehouseDto, User } from '../../types';
 
 interface WarehouseFormProps {
   warehouse: Warehouse | null;
@@ -9,26 +9,67 @@ interface WarehouseFormProps {
 
 const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => {
   const [formData, setFormData] = useState<any>({
+    code: '',
     name: '',
     address: '',
+    city: '',
+    phone: '',
+    managerId: '',
     latitude: '',
     longitude: '',
   });
+  const [availableManagers, setAvailableManagers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadingManagers, setLoadingManagers] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
+    loadAvailableManagers();
+  }, [warehouse]);
+
+  useEffect(() => {
     if (warehouse) {
+      const currentManager = warehouse.staff && warehouse.staff.length > 0
+        ? warehouse.staff[0].userId
+        : '';
+
       setFormData({
+        code: warehouse.code,
         name: warehouse.name,
         address: warehouse.address,
+        city: warehouse.city,
+        phone: warehouse.phone || '',
+        managerId: currentManager.toString(),
         latitude: warehouse.latitude.toString(),
         longitude: warehouse.longitude.toString(),
       });
     }
   }, [warehouse]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const loadAvailableManagers = async () => {
+    try {
+      setLoadingManagers(true);
+      const managers = await warehouseService.getAvailableManagers();
+
+      // Si estamos editando y hay un manager asignado, incluirlo en la lista
+      if (warehouse && warehouse.staff && warehouse.staff.length > 0) {
+        const currentManager = warehouse.staff[0].user;
+        if (currentManager && !managers.find(m => m.id === currentManager.id)) {
+          setAvailableManagers([currentManager, ...managers]);
+        } else {
+          setAvailableManagers(managers);
+        }
+      } else {
+        setAvailableManagers(managers);
+      }
+    } catch (err) {
+      console.error('Error cargando encargados:', err);
+    } finally {
+      setLoadingManagers(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({
       ...prev,
@@ -43,8 +84,12 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
 
     try {
       const submitData: CreateWarehouseDto = {
+        code: formData.code,
         name: formData.name,
         address: formData.address,
+        city: formData.city,
+        phone: formData.phone || undefined,
+        managerId: formData.managerId ? parseInt(formData.managerId) : undefined,
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
       };
@@ -84,20 +129,39 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre del Almacén *
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Ej: Almacén Central"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
+                Código *
+              </label>
+              <input
+                type="text"
+                id="code"
+                name="code"
+                value={formData.code}
+                onChange={handleChange}
+                required
+                maxLength={20}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: ALM-001"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre del Almacén *
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: Almacén Central"
+              />
+            </div>
           </div>
 
           <div>
@@ -114,6 +178,63 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Ej: Av. Principal 123, La Paz"
             />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                Ciudad *
+              </label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: La Paz"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: 2-2123456"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="managerId" className="block text-sm font-medium text-gray-700 mb-1">
+                Encargado
+              </label>
+              <select
+                id="managerId"
+                name="managerId"
+                value={formData.managerId}
+                onChange={handleChange}
+                disabled={loadingManagers}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+              >
+                <option value="">Sin asignar</option>
+                {availableManagers.map((manager) => (
+                  <option key={manager.id} value={manager.id}>
+                    {manager.firstName} {manager.lastName}
+                  </option>
+                ))}
+              </select>
+              {loadingManagers && (
+                <p className="text-xs text-gray-500 mt-1">Cargando encargados...</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

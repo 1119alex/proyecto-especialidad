@@ -95,10 +95,10 @@ const Warehouses: React.FC = () => {
                       Nombre
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dirección
+                      Ciudad
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ciudad
+                      Encargado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
@@ -116,47 +116,59 @@ const Warehouses: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    warehouses.map((warehouse) => (
-                      <tr key={warehouse.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {warehouse.code}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {warehouse.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {warehouse.address}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {warehouse.city}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              warehouse.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {warehouse.isActive ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleEdit(warehouse)}
-                            className="text-primary hover:text-blue-900 mr-4"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(warehouse.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    warehouses.map((warehouse) => {
+                      const manager = warehouse.staff && warehouse.staff.length > 0 && warehouse.staff[0].user
+                        ? warehouse.staff[0].user
+                        : null;
+
+                      return (
+                        <tr key={warehouse.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {warehouse.code}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {warehouse.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {warehouse.city}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {manager ? (
+                              <span>
+                                {manager.firstName} {manager.lastName}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">Sin asignar</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                warehouse.isActive
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {warehouse.isActive ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(warehouse)}
+                              className="text-primary hover:text-blue-900 mr-4"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(warehouse.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
