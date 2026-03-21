@@ -2,14 +2,17 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
+import { TrackingLog } from '../../entities/tracking-log.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class TransfersService {
@@ -18,6 +21,8 @@ export class TransfersService {
     private readonly transferRepository: Repository<Transfer>,
     @InjectRepository(TransferDetail)
     private readonly transferDetailRepository: Repository<TransferDetail>,
+    @InjectRepository(TrackingLog)
+    private readonly trackingLogRepository: Repository<TrackingLog>,
   ) {}
 
   async create(
@@ -238,5 +243,251 @@ export class TransfersService {
         `No se puede cambiar el estado de ${currentStatus} a ${newStatus}`,
       );
     }
+  }
+
+  // ===== GESTIÓN DE ESTADOS =====
+
+  async startPreparation(id: number): Promise<Transfer> {
+    const transfer = await this.findOne(id);
+
+    if (transfer.status !== TransferStatus.ASIGNADA) {
+      throw new BadRequestException(
+        'Solo se puede iniciar preparación de transferencias asignadas',
+      );
+    }
+
+    transfer.status = TransferStatus.EN_PREPARACION;
+    return this.transferRepository.save(transfer);
+  }
+
+  async startTransit(id: number, userId: number): Promise<Transfer> {
+    const transfer = await this.findOne(id);
+
+    // Validar que el QR fue verificado en origen
+    if (!transfer.qrVerifiedAtOrigin) {
+      throw new BadRequestException(
+        'Debe verificar el código QR en el origen antes de iniciar el tránsito',
+      );
+    }
+
+    if (transfer.status !== TransferStatus.LISTA_DESPACHO) {
+      throw new BadRequestException(
+        'Solo se puede iniciar tránsito de transferencias listas para despacho',
+      );
+    }
+
+    transfer.status = TransferStatus.EN_TRANSITO;
+    transfer.actualDepartureTime = new Date();
+    return this.transferRepository.save(transfer);
+  }
+
+  async arriveDestination(id: number): Promise<Transfer> {
+    const transfer = await this.findOne(id);
+
+    if (transfer.status !== TransferStatus.EN_TRANSITO) {
+      throw new BadRequestException(
+        'Solo se puede marcar llegada de transferencias en tránsito',
+      );
+    }
+
+    transfer.status = TransferStatus.LLEGADA_DESTINO;
+    transfer.actualArrivalTime = new Date();
+    return this.transferRepository.save(transfer);
+  }
+
+  async complete(
+    id: number,
+    receivedQuantities?: { productId: number; quantity: number }[],
+  ): Promise<Transfer> {
+    const transfer = await this.findOne(id);
+
+    if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
+      throw new BadRequestException(
+        'Solo se pueden completar transferencias que han llegado al destino',
+      );
+    }
+
+    // Validar que el QR fue verificado en destino
+    if (!transfer.qrVerifiedAtDestination) {
+      throw new BadRequestException(
+        'Debe verificar el código QR en el destino antes de completar',
+      );
+    }
+
+    let hasDiscrepancies = false;
+
+    // Si se proporcionaron cantidades recibidas, actualizar detalles
+    if (receivedQuantities && receivedQuantities.length > 0) {
+      for (const received of receivedQuantities) {
+        const detail = transfer.details.find(
+          (d) => d.productId === received.productId,
+        );
+
+        if (detail) {
+          detail.quantityReceived = received.quantity;
+
+          if (detail.quantityExpected !== received.quantity) {
+            detail.hasDiscrepancy = true;
+            hasDiscrepancies = true;
+          }
+
+          await this.transferDetailRepository.save(detail);
+        }
+      }
+    }
+
+    transfer.status = hasDiscrepancies
+      ? TransferStatus.COMPLETADA_CON_DISCREPANCIA
+      : TransferStatus.COMPLETADA;
+    transfer.completedAt = new Date();
+
+    return this.transferRepository.save(transfer);
+  }
+
+  async cancel(
+    id: number,
+    reason: string,
+    cancelledByUserId: number,
+  ): Promise<Transfer> {
+    const transfer = await this.findOne(id);
+
+    if (
+      transfer.status === TransferStatus.COMPLETADA ||
+      transfer.status === TransferStatus.COMPLETADA_CON_DISCREPANCIA ||
+      transfer.status === TransferStatus.CANCELADA
+    ) {
+      throw new BadRequestException(
+        'No se puede cancelar una transferencia completada o ya cancelada',
+      );
+    }
+
+    transfer.status = TransferStatus.CANCELADA;
+    transfer.cancellationReason = reason;
+    transfer.cancelledByUserId = cancelledByUserId;
+    transfer.cancelledAt = new Date();
+
+    return this.transferRepository.save(transfer);
+  }
+
+  // ===== GENERACIÓN Y VERIFICACIÓN DE QR =====
+
+  async getQRCode(id: number): Promise<{ qrCode: string; qrImage: string }> {
+    const transfer = await this.findOne(id);
+
+    // Si ya tiene QR, devolverlo
+    if (transfer.qrCode) {
+      const qrImage = await QRCode.toDataURL(transfer.qrCode);
+      return { qrCode: transfer.qrCode, qrImage };
+    }
+
+    // Generar nuevo código QR (formato: TRF-{id}-{timestamp})
+    const qrData = `TRF-${transfer.id}-${Date.now()}`;
+    transfer.qrCode = qrData;
+    await this.transferRepository.save(transfer);
+
+    // Generar imagen QR en base64
+    const qrImage = await QRCode.toDataURL(qrData);
+
+    return { qrCode: qrData, qrImage };
+  }
+
+  async verifyQR(
+    id: number,
+    scannedQR: string,
+    location: 'origin' | 'destination',
+    userId: number,
+  ): Promise<{ success: boolean; message: string; transfer?: Transfer }> {
+    const transfer = await this.findOne(id);
+
+    // Verificar que el QR coincide
+    if (!transfer.qrCode || transfer.qrCode !== scannedQR) {
+      return {
+        success: false,
+        message: 'El código QR no corresponde a esta transferencia',
+      };
+    }
+
+    if (location === 'origin') {
+      // Verificación en origen
+      if (transfer.status !== TransferStatus.EN_PREPARACION) {
+        return {
+          success: false,
+          message: 'La transferencia debe estar en preparación',
+        };
+      }
+
+      transfer.qrVerifiedAtOrigin = new Date();
+      transfer.status = TransferStatus.LISTA_DESPACHO;
+
+      await this.transferRepository.save(transfer);
+
+      return {
+        success: true,
+        message: 'Verificación exitosa en origen. La transferencia está lista para despacho.',
+        transfer,
+      };
+    } else {
+      // Verificación en destino
+      if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
+        return {
+          success: false,
+          message: 'La transferencia debe haber llegado al destino',
+        };
+      }
+
+      transfer.qrVerifiedAtDestination = new Date();
+      await this.transferRepository.save(transfer);
+
+      return {
+        success: true,
+        message: 'Verificación exitosa en destino. Puede proceder a completar la recepción.',
+        transfer,
+      };
+    }
+  }
+
+  // ===== SEGUIMIENTO GPS =====
+
+  async addGPSTracking(
+    transferId: number,
+    data: { latitude: number; longitude: number; speed?: number; accuracy?: number },
+  ): Promise<TrackingLog> {
+    const transfer = await this.findOne(transferId);
+
+    // Solo permitir tracking si está en tránsito
+    if (transfer.status !== TransferStatus.EN_TRANSITO) {
+      throw new BadRequestException(
+        'Solo se puede registrar ubicación GPS durante el tránsito',
+      );
+    }
+
+    const tracking = this.trackingLogRepository.create({
+      transferId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      speed: data.speed,
+      accuracy: data.accuracy,
+      recordedAt: new Date(),
+    });
+
+    return this.trackingLogRepository.save(tracking);
+  }
+
+  async getTrackingHistory(transferId: number): Promise<TrackingLog[]> {
+    await this.findOne(transferId); // Verificar que existe
+
+    return this.trackingLogRepository.find({
+      where: { transferId },
+      order: { recordedAt: 'ASC' },
+    });
+  }
+
+  async getLatestTracking(transferId: number): Promise<TrackingLog | null> {
+    await this.findOne(transferId); // Verificar que existe
+
+    return this.trackingLogRepository.findOne({
+      where: { transferId },
+      order: { recordedAt: 'DESC' },
+    });
   }
 }
