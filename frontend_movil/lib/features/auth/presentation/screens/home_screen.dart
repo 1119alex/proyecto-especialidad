@@ -113,33 +113,35 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // Mensaje temporal
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.orange.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.orange.shade300,
+                  // Botón de Transferencias
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.push(AppRoutes.transfers);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Esta es una pantalla temporal. Los módulos de Transferencias, Tracking y QR se implementarán próximamente.',
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.local_shipping, size: 24),
+                          SizedBox(width: 12),
+                          Text(
+                            'VER TRANSFERENCIAS',
                             style: TextStyle(
-                              color: Colors.orange.shade100,
-                              fontSize: 13,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ],

@@ -6,6 +6,8 @@ import '../../core/constants/app_constants.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/home_screen.dart';
+import '../../features/transfers/presentation/screens/transfers_list_screen.dart';
+import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
@@ -212,21 +214,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// Placeholders para las pantallas (se crearán después)
-// LoginScreen, SplashScreen y HomeScreen están importados desde features/auth
-
-class TransfersListScreen extends StatelessWidget {
-  const TransfersListScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Transfers List')));
-}
-
-class TransferDetailScreen extends StatelessWidget {
-  final int transferId;
-  const TransferDetailScreen({super.key, required this.transferId});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Transfer Detail: $transferId')));
-}
+// Placeholders para las pantallas pendientes de implementar
 
 class CreateTransferScreen extends StatelessWidget {
   const CreateTransferScreen({super.key});

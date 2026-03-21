@@ -34,7 +34,7 @@ export class TransfersController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
   findAll() {
     return this.transfersService.findAll();
   }
