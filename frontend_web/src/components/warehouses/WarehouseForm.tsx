@@ -17,6 +17,8 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
     managerId: '',
     latitude: '',
     longitude: '',
+    geofenceRadius: '100',
+    isActive: true,
   });
   const [availableManagers, setAvailableManagers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -42,6 +44,8 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
         managerId: currentManager.toString(),
         latitude: warehouse.latitude.toString(),
         longitude: warehouse.longitude.toString(),
+        geofenceRadius: warehouse.geofenceRadius?.toString() || '100',
+        isActive: warehouse.isActive,
       });
     }
   }, [warehouse]);
@@ -70,10 +74,12 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
     setFormData((prev: any) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
@@ -237,7 +243,7 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
                 Latitud *
@@ -275,11 +281,47 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 placeholder="-68.1500"
               />
             </div>
+
+            <div>
+              <label htmlFor="geofenceRadius" className="block text-sm font-medium text-gray-700 mb-1">
+                Radio Geocerca (m)
+              </label>
+              <input
+                type="number"
+                id="geofenceRadius"
+                name="geofenceRadius"
+                value={formData.geofenceRadius}
+                onChange={handleChange}
+                min="10"
+                max="10000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="100"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                name="isActive"
+                checked={formData.isActive || false}
+                onChange={handleChange}
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Almacén activo
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Los almacenes inactivos no estarán disponibles para nuevas transferencias
+            </p>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> Puedes obtener las coordenadas desde Google Maps haciendo clic derecho en el mapa y seleccionando las coordenadas.
+              <strong>Nota:</strong> Puedes obtener las coordenadas desde Google Maps haciendo clic derecho en el mapa y seleccionando las coordenadas. El radio de geocerca se utiliza para validar la ubicación del vehículo al iniciar/completar transferencias.
             </p>
           </div>
 

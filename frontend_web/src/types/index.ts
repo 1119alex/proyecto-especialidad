@@ -22,8 +22,11 @@ export interface CreateUserDto {
   lastName: string;
   phone?: string;
   role: UserRole;
+  isActive?: boolean;
   licenseNumber?: string;
   licenseExpiry?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
   warehouseId?: number;
 }
 
@@ -34,8 +37,11 @@ export interface UpdateUserDto {
   lastName?: string;
   phone?: string;
   role?: UserRole;
+  isActive?: boolean;
   licenseNumber?: string;
   licenseExpiry?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
   warehouseId?: number;
 }
 
@@ -82,6 +88,8 @@ export interface CreateWarehouseDto {
   managerId?: number;
   latitude: number;
   longitude: number;
+  geofenceRadius?: number;
+  isActive?: boolean;
 }
 
 export interface UpdateWarehouseDto {
@@ -93,6 +101,8 @@ export interface UpdateWarehouseDto {
   managerId?: number;
   latitude?: number;
   longitude?: number;
+  geofenceRadius?: number;
+  isActive?: boolean;
 }
 
 // Vehicle types
@@ -114,15 +124,21 @@ export interface Vehicle {
 export interface CreateVehicleDto {
   licensePlate: string;
   model: string;
+  year?: number;
   capacity: number;
   status?: VehicleStatus;
+  isAvailable?: boolean;
+  notes?: string;
 }
 
 export interface UpdateVehicleDto {
   licensePlate?: string;
   model?: string;
+  year?: number;
   capacity?: number;
   status?: VehicleStatus;
+  isAvailable?: boolean;
+  notes?: string;
 }
 
 // Product types
@@ -143,15 +159,23 @@ export interface Product {
 export interface CreateProductDto {
   name: string;
   sku: string;
+  barcode?: string;
   description?: string;
+  category?: string;
   unit: string;
+  minStock?: number;
+  isActive?: boolean;
 }
 
 export interface UpdateProductDto {
   name?: string;
   sku?: string;
+  barcode?: string;
   description?: string;
+  category?: string;
   unit?: string;
+  minStock?: number;
+  isActive?: boolean;
 }
 
 // Transfer types

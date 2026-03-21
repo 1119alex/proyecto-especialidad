@@ -11,8 +11,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose }) => {
   const [formData, setFormData] = useState<CreateProductDto>({
     name: '',
     sku: '',
+    barcode: '',
     description: '',
+    category: '',
     unit: '',
+    minStock: 0,
+    isActive: true,
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -22,17 +26,30 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose }) => {
       setFormData({
         name: product.name,
         sku: product.sku,
+        barcode: product.barcode || '',
         description: product.description || '',
+        category: product.category || '',
         unit: product.unit,
+        minStock: product.minStock,
+        isActive: product.isActive,
       });
     }
   }, [product]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
+    let processedValue: any = value;
+    if (name === 'minStock') {
+      processedValue = value ? parseInt(value) : 0;
+    } else if (type === 'checkbox') {
+      processedValue = checked;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: processedValue,
     }));
   };
 
@@ -95,6 +112,54 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose }) => {
             </div>
 
             <div>
+              <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 mb-1">
+                Código de Barras
+              </label>
+              <input
+                type="text"
+                id="barcode"
+                name="barcode"
+                value={formData.barcode}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: 7501234567890"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre del Producto *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Ej: Laptop Dell Inspiron 15"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                Categoría
+              </label>
+              <input
+                type="text"
+                id="category"
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: Electrónica"
+              />
+            </div>
+
+            <div>
               <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
                 Unidad de Medida *
               </label>
@@ -115,22 +180,22 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose }) => {
                 <option value="METRO">Metro</option>
               </select>
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre del Producto *
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Ej: Laptop Dell Inspiron 15"
-            />
+            <div>
+              <label htmlFor="minStock" className="block text-sm font-medium text-gray-700 mb-1">
+                Stock Mínimo
+              </label>
+              <input
+                type="number"
+                id="minStock"
+                name="minStock"
+                value={formData.minStock}
+                onChange={handleChange}
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="0"
+              />
+            </div>
           </div>
 
           <div>
@@ -148,9 +213,28 @@ const ProductForm: React.FC<ProductFormProps> = ({ product, onClose }) => {
             />
           </div>
 
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                name="isActive"
+                checked={formData.isActive || false}
+                onChange={handleChange}
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Producto activo
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Los productos inactivos no estarán disponibles para nuevas transferencias
+            </p>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> El SKU debe ser único para cada producto y se utiliza para identificarlo en las transferencias.
+              <strong>Nota:</strong> El SKU debe ser único para cada producto y se utiliza para identificarlo en las transferencias. El stock mínimo se utiliza para alertas de inventario bajo.
             </p>
           </div>
 

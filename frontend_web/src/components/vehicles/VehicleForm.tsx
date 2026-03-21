@@ -13,6 +13,9 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
     model: '',
     capacity: 0,
     status: 'DISPONIBLE',
+    year: undefined,
+    isAvailable: true,
+    notes: '',
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -22,17 +25,31 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
       setFormData({
         licensePlate: vehicle.licensePlate,
         model: vehicle.model,
+        year: vehicle.year,
         capacity: vehicle.capacity,
         status: vehicle.status,
+        isAvailable: vehicle.isAvailable,
+        notes: vehicle.notes || '',
       });
     }
   }, [vehicle]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
+    let processedValue: any = value;
+    if (name === 'capacity') {
+      processedValue = parseFloat(value) || 0;
+    } else if (name === 'year') {
+      processedValue = value ? parseInt(value) : undefined;
+    } else if (type === 'checkbox') {
+      processedValue = checked;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'capacity' ? parseFloat(value) || 0 : value,
+      [name]: processedValue,
     }));
   };
 
@@ -77,20 +94,39 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="licensePlate" className="block text-sm font-medium text-gray-700 mb-1">
-              Placa del Vehículo *
-            </label>
-            <input
-              type="text"
-              id="licensePlate"
-              name="licensePlate"
-              value={formData.licensePlate}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-              placeholder="Ej: ABC-1234"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="licensePlate" className="block text-sm font-medium text-gray-700 mb-1">
+                Placa del Vehículo *
+              </label>
+              <input
+                type="text"
+                id="licensePlate"
+                name="licensePlate"
+                value={formData.licensePlate}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                placeholder="Ej: ABC-1234"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
+                Año
+              </label>
+              <input
+                type="number"
+                id="year"
+                name="year"
+                value={formData.year || ''}
+                onChange={handleChange}
+                min="1990"
+                max={new Date().getFullYear() + 1}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ej: 2023"
+              />
+            </div>
           </div>
 
           <div>
@@ -105,7 +141,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Ej: Isuzu NQR 2023"
+              placeholder="Ej: Isuzu NQR"
             />
           </div>
 
@@ -143,6 +179,40 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               <option value="MANTENIMIENTO">Mantenimiento</option>
               <option value="FUERA_SERVICIO">Fuera de Servicio</option>
             </select>
+          </div>
+
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isAvailable"
+                name="isAvailable"
+                checked={formData.isAvailable || false}
+                onChange={handleChange}
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Vehículo disponible para asignación
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Los vehículos no disponibles no podrán ser asignados a transferencias
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              Notas / Observaciones
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Información adicional, mantenimientos, observaciones..."
+            />
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

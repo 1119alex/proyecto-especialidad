@@ -56,6 +56,7 @@ export class UsersService {
       lastName: createUserDto.lastName,
       phone: createUserDto.phone,
       role: createUserDto.role,
+      isActive: createUserDto.isActive !== undefined ? createUserDto.isActive : true,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -66,6 +67,8 @@ export class UsersService {
         userId: savedUser.id,
         licenseNumber: createUserDto.licenseNumber!,
         licenseExpiry: new Date(createUserDto.licenseExpiry!),
+        emergencyContact: createUserDto.emergencyContact,
+        emergencyPhone: createUserDto.emergencyPhone,
       });
     }
     // Nota: Los encargados de almacén se asignan a través del formulario de almacenes

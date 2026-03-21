@@ -15,6 +15,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
     lastName: '',
     phone: '',
     role: 'TRANSPORTISTA',
+    isActive: true,
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -28,15 +29,18 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
         lastName: user.lastName,
         phone: user.phone || '',
         role: user.role,
+        isActive: user.isActive,
       });
     }
   }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
@@ -192,6 +196,25 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
             </div>
           </div>
 
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                name="isActive"
+                checked={formData.isActive || false}
+                onChange={handleChange}
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Usuario activo
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Los usuarios inactivos no podrán iniciar sesión en el sistema
+            </p>
+          </div>
+
           {/* Campos específicos para Transportista */}
           {showDriverFields && (
             <div className="border-t pt-4 mt-4">
@@ -223,6 +246,39 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose }) => {
                     value={formData.licenseExpiry || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <h5 className="text-md font-semibold mt-4 mb-2 text-gray-700">Contacto de Emergencia</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="emergencyContact" className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre del Contacto
+                  </label>
+                  <input
+                    type="text"
+                    id="emergencyContact"
+                    name="emergencyContact"
+                    value={formData.emergencyContact || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Ej: María Pérez"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="emergencyPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                    Teléfono de Emergencia
+                  </label>
+                  <input
+                    type="tel"
+                    id="emergencyPhone"
+                    name="emergencyPhone"
+                    value={formData.emergencyPhone || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="+591 7XXXXXXX"
                   />
                 </div>
               </div>

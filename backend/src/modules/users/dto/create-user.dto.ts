@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsBoolean } from 'class-validator';
 import { UserRole } from '../../../common/enums/user-role.enum';
 
 export class CreateUserDto {
@@ -27,6 +27,10 @@ export class CreateUserDto {
   @IsNotEmpty()
   role: UserRole;
 
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
   // Campos específicos para conductores
   @IsString()
   @IsOptional()
@@ -35,6 +39,14 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   licenseExpiry?: string;
+
+  @IsString()
+  @IsOptional()
+  emergencyContact?: string;
+
+  @IsString()
+  @IsOptional()
+  emergencyPhone?: string;
 
   // Campo específico para encargados de almacén
   @IsOptional()

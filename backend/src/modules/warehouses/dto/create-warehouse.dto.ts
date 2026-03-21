@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class CreateWarehouseDto {
   @IsString()
@@ -32,4 +32,12 @@ export class CreateWarehouseDto {
   @IsNumber()
   @IsNotEmpty()
   longitude: number;
+
+  @IsNumber()
+  @IsOptional()
+  geofenceRadius?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
