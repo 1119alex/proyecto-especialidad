@@ -183,49 +183,78 @@ export type TransferStatus =
   | 'PENDIENTE'
   | 'ASIGNADA'
   | 'EN_PREPARACION'
+  | 'LISTA_DESPACHO'
   | 'EN_TRANSITO'
   | 'LLEGADA_DESTINO'
   | 'COMPLETADA'
-  | 'COMPLETADA_CON_DISCREPANCIAS'
+  | 'COMPLETADA_CON_DISCREPANCIA'
   | 'CANCELADA';
 
 export interface TransferDetail {
   id: number;
+  transferId: number;
   productId: number;
   product?: Product;
-  quantitySent: number;
+  quantityExpected: number;
   quantityReceived?: number;
   hasDiscrepancy: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Transfer {
   id: number;
-  originId: number;
-  origin?: Warehouse;
-  destId: number;
-  dest?: Warehouse;
+  transferCode: string;
+  originWarehouseId: number;
+  originWarehouse?: Warehouse;
+  destinationWarehouseId: number;
+  destinationWarehouse?: Warehouse;
   vehicleId?: number;
   vehicle?: Vehicle;
-  createdBy: number;
-  createdByUser?: User;
+  driverId?: number;
+  driver?: User;
   status: TransferStatus;
-  qrCode: string;
-  createdAt: Date;
+  qrCode?: string;
+  qrVerifiedAtOrigin?: Date;
+  qrVerifiedAtDestination?: Date;
+  estimatedDepartureTime?: Date;
+  estimatedArrivalTime?: Date;
+  actualDepartureTime?: Date;
+  actualArrivalTime?: Date;
   completedAt?: Date;
-  details?: TransferDetail[];
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  cancelledByUserId?: number;
+  cancelledBy?: User;
+  createdByUserId: number;
+  createdBy?: User;
+  createdAt: Date;
+  updatedAt: Date;
+  details: TransferDetail[];
 }
 
-export interface CreateTransferDTO {
-  originId: number;
-  destId: number;
+export interface CreateTransferDto {
+  originWarehouseId: number;
+  destinationWarehouseId: number;
+  vehicleId?: number;
+  driverId?: number;
+  estimatedDepartureTime?: string;
+  estimatedArrivalTime?: string;
   details: {
     productId: number;
-    quantitySent: number;
+    quantity: number;
   }[];
 }
 
-export interface AssignVehicleDTO {
-  vehicleId: number;
+export interface UpdateTransferDto {
+  originWarehouseId?: number;
+  destinationWarehouseId?: number;
+  vehicleId?: number;
+  driverId?: number;
+  estimatedDepartureTime?: string;
+  estimatedArrivalTime?: string;
+  status?: TransferStatus;
+  cancellationReason?: string;
 }
 
 // Tracking types
@@ -234,7 +263,10 @@ export interface TrackingLog {
   transferId: number;
   latitude: number;
   longitude: number;
-  timestamp: Date;
+  speed?: number;
+  accuracy?: number;
+  recordedAt: Date;
+  createdAt: Date;
 }
 
 // Notification types
