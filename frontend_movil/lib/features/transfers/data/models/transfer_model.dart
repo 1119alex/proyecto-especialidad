@@ -219,9 +219,9 @@ class TransferDetailModel {
   @JsonKey(name: 'productId')
   final int productId;
   final ProductModel? product;
-  @JsonKey(name: 'quantityExpected')
+  @JsonKey(name: 'quantityExpected', fromJson: _quantityFromJson)
   final double quantityExpected;
-  @JsonKey(name: 'quantityReceived')
+  @JsonKey(name: 'quantityReceived', fromJson: _quantityFromJson)
   final double? quantityReceived;
   @JsonKey(name: 'hasDiscrepancy')
   final bool hasDiscrepancy;
@@ -235,6 +235,14 @@ class TransferDetailModel {
     this.quantityReceived,
     required this.hasDiscrepancy,
   });
+
+  static double _quantityFromJson(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
 
   factory TransferDetailModel.fromJson(Map<String, dynamic> json) =>
       _$TransferDetailModelFromJson(json);

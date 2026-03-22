@@ -150,8 +150,10 @@ TransferDetailModel _$TransferDetailModelFromJson(Map<String, dynamic> json) =>
       product: json['product'] == null
           ? null
           : ProductModel.fromJson(json['product'] as Map<String, dynamic>),
-      quantityExpected: (json['quantityExpected'] as num).toDouble(),
-      quantityReceived: (json['quantityReceived'] as num?)?.toDouble(),
+      quantityExpected:
+          TransferDetailModel._quantityFromJson(json['quantityExpected']),
+      quantityReceived:
+          TransferDetailModel._quantityFromJson(json['quantityReceived']),
       hasDiscrepancy: json['hasDiscrepancy'] as bool,
     );
 
