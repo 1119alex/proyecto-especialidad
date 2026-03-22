@@ -8,6 +8,11 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/home_screen.dart';
 import '../../features/transfers/presentation/screens/transfers_list_screen.dart';
 import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
+import '../../features/transfers/presentation/screens/qr_scanner_screen.dart';
+import '../../features/transfers/presentation/screens/qr_display_screen.dart';
+import '../../features/transfers/presentation/screens/qr_verification_screen.dart';
+import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
+import '../../features/transfers/presentation/screens/reception_screen.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
@@ -22,10 +27,15 @@ class AppRoutes {
   static const String transfers = '/transfers';
   static const String transferDetail = '/transfers/:id';
   static const String createTransfer = '/transfers/create';
-  static const String scanQr = '/scan-qr';
 
-  // Tracking
-  static const String tracking = '/tracking/:transferId';
+  // QR
+  static const String qrDisplay = '/qr-display';
+  static const String qrScanner = '/qr-scanner';
+  static const String qrVerification = '/qr-verification';
+
+  // GPS & Reception
+  static const String gpsTracking = '/gps-tracking';
+  static const String reception = '/reception';
 
   // Profile
   static const String profile = '/profile';
@@ -105,18 +115,58 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateTransferScreen(),
       ),
 
-      // QR Scanner
+      // QR Display
       GoRoute(
-        path: AppRoutes.scanQr,
-        builder: (context, state) => const QrScannerScreen(),
+        path: AppRoutes.qrDisplay,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return QRDisplayScreen(
+            transferId: extra['transferId'] as int,
+            transferCode: extra['transferCode'] as String,
+            qrCode: extra['qrCode'] as String,
+            originName: extra['originName'] as String,
+            destinationName: extra['destinationName'] as String,
+            totalProducts: extra['totalProducts'] as int,
+          );
+        },
       ),
 
-      // Tracking
+      // QR Scanner
       GoRoute(
-        path: AppRoutes.tracking,
+        path: AppRoutes.qrScanner,
         builder: (context, state) {
-          final transferId = int.parse(state.pathParameters['transferId']!);
-          return TrackingScreen(transferId: transferId);
+          final extra = state.extra as Map<String, dynamic>;
+          return QRScannerScreen(
+            transferId: extra['transferId'] as int,
+            location: extra['location'] as String,
+          );
+        },
+      ),
+
+      // GPS Tracking
+      GoRoute(
+        path: AppRoutes.gpsTracking,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return GPSTrackingScreen(
+            transferId: extra['transferId'] as int,
+            transferCode: extra['transferCode'] as String,
+            status: extra['status'] as String,
+          );
+        },
+      ),
+
+      // Reception
+      GoRoute(
+        path: AppRoutes.reception,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>;
+          return ReceptionScreen(
+            transferId: extra['transferId'] as int,
+            transferCode: extra['transferCode'] as String,
+            originName: extra['originName'] as String,
+            destinationName: extra['destinationName'] as String,
+          );
         },
       ),
 
@@ -220,19 +270,6 @@ class CreateTransferScreen extends StatelessWidget {
   const CreateTransferScreen({super.key});
   @override
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Create Transfer')));
-}
-
-class QrScannerScreen extends StatelessWidget {
-  const QrScannerScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('QR Scanner')));
-}
-
-class TrackingScreen extends StatelessWidget {
-  final int transferId;
-  const TrackingScreen({super.key, required this.transferId});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Tracking: $transferId')));
 }
 
 class ProfileScreen extends StatelessWidget {

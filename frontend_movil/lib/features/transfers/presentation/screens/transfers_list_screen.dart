@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
+import '../../../../shared/providers/auth_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../../domain/entities/transfer_entity.dart';
 
@@ -20,125 +21,513 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
   @override
   Widget build(BuildContext context) {
     final transfersAsync = ref.watch(transfersProvider);
-    final countsMap = ref.watch(transfersCountByStatusProvider);
+    final userRole = ref.watch(userRoleProvider);
+    final userName = 'Carlos Mendoza'; // TODO: Get from auth provider
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A2332),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF2A3544),
-        title: const Text(
-          'TRANSFERENCIAS',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.white),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Chips de resumen por estado
-          _buildStatusChips(countsMap),
-
-          // Lista de transferencias
-          Expanded(
-            child: transfersAsync.when(
-              data: (transfers) {
-                // Aplicar filtro si existe
-                final filteredTransfers = _selectedFilter == null
-                    ? transfers
-                    : transfers
-                        .where((t) => t.status == _selectedFilter)
-                        .toList();
-
-                if (filteredTransfers.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    await ref.read(transfersProvider.notifier).refresh();
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredTransfers.length,
-                    itemBuilder: (context, index) {
-                      final transfer = filteredTransfers[index];
-                      return _buildTransferCard(context, transfer);
-                    },
-                  ),
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: Colors.blue),
-              ),
-              error: (error, stack) => _buildErrorState(error.toString()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusChips(Map<String, int> counts) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
+      backgroundColor: const Color(0xFF1E293B),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStatusChip('TODOS', null, _getTotalCount(counts)),
-            const SizedBox(width: 8),
-            _buildStatusChip('PENDIENTE', 'PENDIENTE', counts['PENDIENTE'] ?? 0),
-            const SizedBox(width: 8),
-            _buildStatusChip(
-                'EN TRÁNSITO', 'EN_TRANSITO', counts['EN_TRANSITO'] ?? 0),
-            const SizedBox(width: 8),
-            _buildStatusChip(
-                'COMPLETADA', 'COMPLETADA', counts['COMPLETADA'] ?? 0),
-            const SizedBox(width: 8),
-            _buildStatusChip('CANCELADA', 'CANCELADA', counts['CANCELADA'] ?? 0),
+            // Header con saludo y viaje activo
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1E293B),
+                    const Color(0xFF334155),
+                  ],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Hola,',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            userName.split(' ')[0],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.local_shipping,
+                          color: Color(0xFF3B82F6),
+                          size: 28,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Estado actual del viaje
+            _buildActiveTrip(transfersAsync),
+
+            // Título de sección
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'MIS VIAJES',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  transfersAsync.when(
+                    data: (transfers) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${transfers.length} viajes',
+                        style: const TextStyle(
+                          color: Color(0xFF3B82F6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Lista de transferencias
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: transfersAsync.when(
+                  data: (transfers) {
+                    // Aplicar filtro si existe
+                    final filteredTransfers = _selectedFilter == null
+                        ? transfers
+                        : transfers
+                            .where((t) => t.status == _selectedFilter)
+                            .toList();
+
+                    if (filteredTransfers.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        await ref.read(transfersProvider.notifier).refresh();
+                      },
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: filteredTransfers.length,
+                        itemBuilder: (context, index) {
+                          final transfer = filteredTransfers[index];
+                          return _buildTransferCard(context, transfer);
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+                  ),
+                  error: (error, stack) => _buildErrorState(error.toString()),
+                ),
+              ),
+            ),
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
-  Widget _buildStatusChip(String label, String? filter, int count) {
-    final isSelected = _selectedFilter == filter;
-    return FilterChip(
-      label: Text('$label ($count)'),
-      selected: isSelected,
-      onSelected: (selected) {
-        setState(() {
-          _selectedFilter = selected ? filter : null;
-        });
+  Widget _buildActiveTrip(AsyncValue<List<TransferEntity>> transfersAsync) {
+    return transfersAsync.when(
+      data: (transfers) {
+        // Buscar viaje activo (EN_TRANSITO)
+        final activeTrip = transfers.firstWhere(
+          (t) => t.status == 'EN_TRANSITO',
+          orElse: () => transfers.firstWhere(
+            (t) => t.status == 'LISTA_DESPACHO',
+            orElse: () => transfers.first,
+          ),
+        );
+
+        if (activeTrip.status == 'EN_TRANSITO') {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF3B82F6),
+                  Color(0xFF2563EB),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF3B82F6).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.navigation,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'VIAJE ACTIVO',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            activeTrip.transferCode,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Destino',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            activeTrip.destinationWarehouse?.name ?? 'N/A',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _navigateToGPSTracking(context, activeTrip),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF3B82F6),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Ver en Mapa',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (activeTrip.status == 'LISTA_DESPACHO') {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF10B981),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.qr_code_scanner,
+                        color: Color(0xFF10B981),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'LISTO PARA RECOGER',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            activeTrip.transferCode,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Recoger en',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            activeTrip.originWarehouse?.name ?? 'N/A',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _navigateToQRScanner(context, activeTrip, 'origin'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.qr_code_scanner, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Escanear QR y Recoger',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
       },
-      backgroundColor: const Color(0xFF2A3544),
-      selectedColor: Colors.blue.shade700,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.white70,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(Icons.home, 'Inicio', true),
+              _buildNavItem(Icons.local_shipping_outlined, 'Viajes', false),
+              _buildNavItem(Icons.notifications_outlined, 'Alertas', false),
+              _buildNavItem(Icons.person_outline, 'Perfil', false),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  int _getTotalCount(Map<String, int> counts) {
-    return counts.values.fold(0, (sum, count) => sum + count);
+  Widget _buildNavItem(IconData icon, String label, bool isActive) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: isActive ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8),
+          size: 24,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: isActive ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8),
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
   }
 
+
   Widget _buildTransferCard(BuildContext context, TransferEntity transfer) {
-    return Card(
-      color: const Color(0xFF2A3544),
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    // Determinar el color del borde izquierdo según el estado
+    Color borderColor;
+    switch (transfer.status.toUpperCase()) {
+      case 'PENDIENTE':
+        borderColor = const Color(0xFF9CA3AF); // Gris
+        break;
+      case 'EN_TRANSITO':
+        borderColor = const Color(0xFFFBBF24); // Amarillo/Naranja
+        break;
+      case 'ASIGNADA':
+        borderColor = const Color(0xFF3B82F6); // Azul
+        break;
+      case 'COMPLETADA':
+        borderColor = const Color(0xFF10B981); // Verde
+        break;
+      default:
+        borderColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(
+            color: borderColor,
+            width: 6,
+          ),
+        ),
+      ),
       child: InkWell(
         onTap: () {
           context.push('${AppRoutes.transfers}/${transfer.id}');
@@ -156,8 +545,8 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
                   Text(
                     transfer.transferCode,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+                      color: Color(0xFF1E293B),
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -166,16 +555,17 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Origen → Destino
+              // Origen
               Row(
                 children: [
-                  const Icon(Icons.location_on, color: Colors.green, size: 20),
+                  const Icon(Icons.location_on_outlined,
+                      color: Color(0xFFEF4444), size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       transfer.originWarehouse?.name ?? 'Almacén Origen',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: Color(0xFF64748B),
                         fontSize: 14,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -183,24 +573,19 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
+
+              // Destino
               Row(
                 children: [
-                  const Icon(Icons.arrow_downward,
-                      color: Colors.white54, size: 16),
-                  const SizedBox(width: 12),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, color: Colors.red, size: 20),
+                  const Icon(Icons.warehouse_outlined,
+                      color: Color(0xFF64748B), size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       transfer.destinationWarehouse?.name ?? 'Almacén Destino',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: Color(0xFF64748B),
                         fontSize: 14,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -210,41 +595,25 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Footer: Fecha y otros detalles
+              // Footer: Hora
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today,
-                          color: Colors.white54, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatDate(transfer.createdAt),
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (transfer.vehicle != null)
-                    Row(
-                      children: [
-                        const Icon(Icons.local_shipping,
-                            color: Colors.white54, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          transfer.vehicle!.licensePlate,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                  const Icon(Icons.access_time,
+                      color: Color(0xFF64748B), size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatTime(transfer.createdAt),
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
                     ),
+                  ),
                 ],
               ),
+
+              // Action buttons based on role and status
+              const SizedBox(height: 12),
+              _buildActionButtons(context, transfer),
             ],
           ),
         ),
@@ -252,45 +621,222 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
     );
   }
 
+  Widget _buildActionButtons(BuildContext context, TransferEntity transfer) {
+    // TODO: Get user role from auth provider
+    // final userRole = ref.read(authProvider).user?.role;
+    final userRole = 'TRANSPORTISTA'; // Mock for now
+
+    final buttons = <Widget>[];
+
+    // Encargado de Almacén (Origen)
+    if (userRole == 'ENCARGADO_ALMACEN') {
+      if (transfer.status == 'EN_PREPARACION') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Mostrar QR',
+            icon: Icons.qr_code,
+            color: const Color(0xFF3B82F6),
+            onPressed: () => _navigateToQRDisplay(context, transfer),
+          ),
+        );
+      }
+      if (transfer.status == 'LLEGADA_DESTINO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Escanear QR',
+            icon: Icons.qr_code_scanner,
+            color: const Color(0xFF10B981),
+            onPressed: () => _navigateToQRScanner(context, transfer, 'destination'),
+          ),
+        );
+      }
+    }
+
+    // Transportista
+    if (userRole == 'TRANSPORTISTA') {
+      if (transfer.status == 'LISTA_DESPACHO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Escanear QR Origen',
+            icon: Icons.qr_code_scanner,
+            color: const Color(0xFF3B82F6),
+            onPressed: () => _navigateToQRScanner(context, transfer, 'origin'),
+          ),
+        );
+      }
+      if (transfer.status == 'EN_TRANSITO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Ver Seguimiento GPS',
+            icon: Icons.navigation,
+            color: const Color(0xFFFBBF24),
+            onPressed: () => _navigateToGPSTracking(context, transfer),
+          ),
+        );
+        buttons.add(
+          _buildActionButton(
+            label: 'Confirmar Llegada',
+            icon: Icons.check_circle,
+            color: const Color(0xFF10B981),
+            onPressed: () => _confirmArrival(context, transfer),
+          ),
+        );
+      }
+    }
+
+    if (buttons.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: buttons,
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 16),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToQRDisplay(BuildContext context, TransferEntity transfer) {
+    // TODO: Navigate to QR display screen
+    context.push('/qr-display', extra: {
+      'transferId': transfer.id,
+      'transferCode': transfer.transferCode,
+      'qrCode': transfer.qrCode ?? 'TRF-${transfer.id}-${DateTime.now().millisecondsSinceEpoch}',
+      'originName': transfer.originWarehouse?.name ?? 'N/A',
+      'destinationName': transfer.destinationWarehouse?.name ?? 'N/A',
+      'totalProducts': transfer.details?.length ?? 0,
+    });
+  }
+
+  void _navigateToQRScanner(BuildContext context, TransferEntity transfer, String location) {
+    // TODO: Navigate to QR scanner screen
+    context.push('/qr-scanner', extra: {
+      'transferId': transfer.id,
+      'location': location,
+    });
+  }
+
+  void _navigateToGPSTracking(BuildContext context, TransferEntity transfer) {
+    // TODO: Navigate to GPS tracking screen
+    context.push('/gps-tracking', extra: {
+      'transferId': transfer.id,
+      'transferCode': transfer.transferCode,
+      'status': transfer.status,
+    });
+  }
+
+  Future<void> _confirmArrival(BuildContext context, TransferEntity transfer) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A3544),
+        title: const Text(
+          'Confirmar Llegada',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          '¿Has llegado al destino: ${transfer.destinationWarehouse?.name}?',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // TODO: Update transfer status to LLEGADA_DESTINO
+      // await ref.read(transfersProvider.notifier).arriveDestination(transfer.id);
+      ref.read(transfersProvider.notifier).refresh();
+    }
+  }
+
   Widget _buildStatusBadge(String status) {
     Color bgColor;
-    Color textColor = Colors.white;
+    Color textColor;
     String label;
 
     switch (status.toUpperCase()) {
       case 'PENDIENTE':
-        bgColor = Colors.orange.shade700;
+        bgColor = const Color(0xFFFEF3C7); // Amarillo claro
+        textColor = const Color(0xFF92400E); // Texto amarillo oscuro
         label = 'PENDIENTE';
         break;
       case 'EN_TRANSITO':
-        bgColor = Colors.blue.shade700;
+        bgColor = const Color(0xFFFEF3C7); // Amarillo claro (según mockup)
+        textColor = const Color(0xFF92400E);
         label = 'EN TRÁNSITO';
         break;
+      case 'ASIGNADA':
+        bgColor = const Color(0xFFDEF0FF); // Azul claro
+        textColor = const Color(0xFF1E40AF);
+        label = 'ASIGNADA';
+        break;
       case 'COMPLETADA':
-        bgColor = Colors.green.shade700;
+        bgColor = const Color(0xFFD1FAE5); // Verde claro
+        textColor = const Color(0xFF065F46);
         label = 'COMPLETADA';
         break;
       case 'CANCELADA':
-        bgColor = Colors.red.shade700;
+        bgColor = const Color(0xFFFEE2E2); // Rojo claro
+        textColor = const Color(0xFF991B1B);
         label = 'CANCELADA';
         break;
       default:
-        bgColor = Colors.grey.shade700;
+        bgColor = const Color(0xFFF3F4F6);
+        textColor = const Color(0xFF6B7280);
         label = status;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: textColor,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -360,46 +906,8 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
     );
   }
 
-  void _showFilterDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A3544),
-        title: const Text(
-          'Filtrar por estado',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFilterOption(context, 'Todos', null),
-            _buildFilterOption(context, 'Pendiente', 'PENDIENTE'),
-            _buildFilterOption(context, 'En Tránsito', 'EN_TRANSITO'),
-            _buildFilterOption(context, 'Completada', 'COMPLETADA'),
-            _buildFilterOption(context, 'Cancelada', 'CANCELADA'),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildFilterOption(BuildContext context, String label, String? value) {
-    return ListTile(
-      title: Text(
-        label,
-        style: const TextStyle(color: Colors.white),
-      ),
-      selected: _selectedFilter == value,
-      onTap: () {
-        setState(() {
-          _selectedFilter = value;
-        });
-        Navigator.pop(context);
-      },
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  String _formatTime(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

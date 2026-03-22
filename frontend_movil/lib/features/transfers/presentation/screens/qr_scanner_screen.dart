@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'qr_verification_screen.dart';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -33,13 +34,20 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       isScanning = false;
     });
 
+    // TODO: Fetch transfer details from API to get full information
+    // final transfer = await ref.read(transfersProvider.notifier).getTransferById(widget.transferId);
+
     // Navigate to verification screen
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => QRVerificationScreen(
           transferId: widget.transferId,
+          transferCode: 'TRF-${widget.transferId.toString().padLeft(3, '0')}', // Mock
           scannedCode: qrCode,
           location: widget.location,
+          originName: 'Almacén Origen', // TODO: Get from API
+          destinationName: 'Almacén Destino', // TODO: Get from API
+          totalProducts: 5, // TODO: Get from API
         ),
       ),
     );
@@ -136,25 +144,5 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         ],
       ),
     );
-  }
-}
-
-// Import the verification screen (we'll create it next)
-class QRVerificationScreen extends StatelessWidget {
-  final int transferId;
-  final String scannedCode;
-  final String location;
-
-  const QRVerificationScreen({
-    super.key,
-    required this.transferId,
-    required this.scannedCode,
-    required this.location,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // This will be implemented in the next file
-    return const Placeholder();
   }
 }

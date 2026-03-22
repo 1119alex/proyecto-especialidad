@@ -3,14 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class QRVerificationScreen extends ConsumerStatefulWidget {
   final int transferId;
+  final String transferCode;
   final String scannedCode;
   final String location; // 'origin' or 'destination'
+  final String originName;
+  final String destinationName;
+  final int totalProducts;
 
   const QRVerificationScreen({
     super.key,
     required this.transferId,
+    required this.transferCode,
     required this.scannedCode,
     required this.location,
+    required this.originName,
+    required this.destinationName,
+    required this.totalProducts,
   });
 
   @override
@@ -22,6 +30,7 @@ class _QRVerificationScreenState extends ConsumerState<QRVerificationScreen> {
   bool isVerifying = true;
   bool verificationSuccess = false;
   String? errorMessage;
+  bool isConfirming = false;
 
   @override
   void initState() {
@@ -47,20 +56,68 @@ class _QRVerificationScreenState extends ConsumerState<QRVerificationScreen> {
         isVerifying = false;
         verificationSuccess = true;
       });
-
-      // Navigate to next step after 2 seconds
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.of(context).pop();
-          // TODO: Navigate to appropriate screen based on location
-        }
-      });
     } catch (e) {
       setState(() {
         isVerifying = false;
         verificationSuccess = false;
         errorMessage = e.toString();
       });
+    }
+  }
+
+  Future<void> _confirmLoad() async {
+    setState(() {
+      isConfirming = true;
+    });
+
+    try {
+      // TODO: Call the backend API to confirm and update transfer status
+      // if (widget.location == 'origin') {
+      //   // Transportista confirms load at origin -> Start transit
+      //   await ref.read(transfersProvider.notifier)
+      //       .startTransit(widget.transferId);
+      // } else {
+      //   // At destination -> Navigate to reception screen
+      // }
+
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (mounted) {
+        if (widget.location == 'origin') {
+          // Navigate to GPS tracking screen
+          Navigator.of(context).pushReplacementNamed(
+            '/gps-tracking',
+            arguments: {
+              'transferId': widget.transferId,
+              'transferCode': widget.transferCode,
+            },
+          );
+        } else {
+          // Navigate to reception screen
+          Navigator.of(context).pushReplacementNamed(
+            '/reception',
+            arguments: {
+              'transferId': widget.transferId,
+              'transferCode': widget.transferCode,
+              'originName': widget.originName,
+              'destinationName': widget.destinationName,
+            },
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        isConfirming = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al confirmar: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
     }
   }
 
@@ -76,7 +133,7 @@ class _QRVerificationScreenState extends ConsumerState<QRVerificationScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Verificación QR',
+          'Verificación de Carga',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -85,156 +142,257 @@ class _QRVerificationScreenState extends ConsumerState<QRVerificationScreen> {
         ),
         centerTitle: true,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Transfer Info
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF334155),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'TRANSFERENCIA',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
+      body: isVerifying
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF3B82F6),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Verificando código QR...',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'TRF-${widget.transferId.toString().padLeft(3, '0')}',
+                  ),
+                ],
+              ),
+            )
+          : !verificationSuccess
+              ? _buildErrorState()
+              : _buildSuccessState(),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF334155),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 100,
+                color: Color(0xFFEF4444),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Código QR Inválido',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              errorMessage ?? 'El código QR no corresponde a esta transferencia',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Escanear de Nuevo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          // Success Icon
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF10B981),
+                width: 3,
+              ),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              size: 100,
+              color: Color(0xFF10B981),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Success Message
+          const Text(
+            'QR Verificado Exitosamente',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 32),
+
+          // Transfer Details Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      widget.transferCode,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.scannedCode,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 48),
-
-              // QR Code Display
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF3B82F6),
-                    width: 3,
                   ),
                 ),
-                child: Column(
-                  children: [
-                    // QR Code representation (you can use qr_flutter package for real QR)
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: isVerifying
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF3B82F6),
-                              ),
-                            )
-                          : verificationSuccess
-                              ? const Icon(
-                                  Icons.check_circle,
-                                  size: 120,
-                                  color: Color(0xFF10B981),
-                                )
-                              : const Icon(
-                                  Icons.error,
-                                  size: 120,
-                                  color: Color(0xFFEF4444),
-                                ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isVerifying
-                          ? 'Verificando...'
-                          : verificationSuccess
-                              ? 'Verificado con éxito'
-                              : 'Código inválido',
-                      style: TextStyle(
-                        color: isVerifying
-                            ? Colors.black54
-                            : verificationSuccess
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 24),
+                const Divider(color: Color(0xFF475569)),
+                const SizedBox(height: 24),
+                _buildDetailRow(
+                  Icons.warehouse,
+                  'Origen',
+                  widget.originName,
                 ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Status message
-              Text(
-                isVerifying
-                    ? 'Apunta la cámara al código QR de la carga'
-                    : verificationSuccess
-                        ? widget.location == 'origin'
-                            ? 'Carga verificada en origen'
-                            : 'Carga verificada en destino'
-                        : errorMessage ?? 'Error al verificar el código',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
+                const SizedBox(height: 16),
+                _buildDetailRow(
+                  Icons.location_on,
+                  'Destino',
+                  widget.destinationName,
                 ),
-                textAlign: TextAlign.center,
+                const SizedBox(height: 16),
+                _buildDetailRow(
+                  Icons.inventory_2,
+                  'Total de Productos',
+                  '${widget.totalProducts} items',
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Info message based on location
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF3B82F6).withOpacity(0.3),
               ),
-
-              const SizedBox(height: 48),
-
-              // Action button
-              if (!isVerifying && verificationSuccess)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  color: Color(0xFF3B82F6),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.location == 'origin'
+                        ? 'Presiona "Confirmar Carga" para iniciar el viaje con seguimiento GPS'
+                        : 'Presiona "Confirmar Llegada" para verificar los productos recibidos',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
                     ),
-                    child: Row(
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Confirm Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isConfirming ? null : _confirmLoad,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                disabledBackgroundColor: const Color(0xFF475569),
+              ),
+              child: isConfirming
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.check, color: Colors.white),
-                        const SizedBox(width: 8),
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 12),
                         Text(
                           widget.location == 'origin'
-                              ? 'Carga Verificada'
-                              : 'Continuar',
+                              ? 'Confirmar Carga e Iniciar Viaje'
+                              : 'Confirmar Llegada',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -243,37 +401,65 @@ class _QRVerificationScreenState extends ConsumerState<QRVerificationScreen> {
                         ),
                       ],
                     ),
-                  ),
-                ),
+            ),
+          ),
 
-              if (!isVerifying && !verificationSuccess)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Intentar de nuevo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+          const SizedBox(height: 16),
+
+          // Cancel Button
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: isConfirming
+                  ? null
+                  : () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 16,
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: const Color(0xFF3B82F6),
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
