@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/providers/auth_provider.dart';
 
 /// Login Screen - Pantalla de inicio de sesión
@@ -33,10 +34,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       // Ejecutar login - esto lanzará excepción si falla
-      await ref.read(authProvider.notifier).login(
-            _emailController.text.trim(),
-            _passwordController.text,
-          );
+      await ref
+          .read(authProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text);
 
       if (!mounted) return;
 
@@ -52,10 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Expanded(
                 child: Text(
                   '¡Inicio de sesión exitoso!',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -64,9 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
           margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
 
@@ -75,8 +70,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      // Navegar al home
-      context.go(AppRoutes.home);
+      // Navegar según el rol del usuario
+      final authState = ref.read(authProvider);
+      final userRole = authState.value?.userRole;
+
+      if (userRole == AppConstants.roleEncargadoAlmacen) {
+        context.go(AppRoutes.warehouseHome);
+      } else {
+        context.go(AppRoutes.transfers);
+      }
     } catch (e) {
       // Capturar y mostrar el error
       if (!mounted) return;
@@ -120,9 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
           margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }

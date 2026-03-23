@@ -13,6 +13,7 @@ import '../../features/transfers/presentation/screens/qr_display_screen.dart';
 import '../../features/transfers/presentation/screens/qr_verification_screen.dart';
 import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
 import '../../features/transfers/presentation/screens/reception_screen.dart';
+import '../../features/warehouse/presentation/screens/warehouse_home_screen.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
@@ -22,6 +23,7 @@ class AppRoutes {
 
   // Home/Dashboard
   static const String home = '/';
+  static const String warehouseHome = '/warehouse-home';
 
   // Transfers
   static const String transfers = '/transfers';
@@ -59,6 +61,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Usar ref.read para evitar rebuilds innecesarios del router
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.value?.isAuthenticated ?? false;
+      final userRole = authState.value?.userRole;
       final isSplashRoute = state.matchedLocation == AppRoutes.splash;
       final isLoginRoute = state.matchedLocation == AppRoutes.login;
 
@@ -72,9 +75,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.login;
       }
 
-      // Si está autenticado y está en login, redirigir a home
+      // Si está autenticado y está en login, redirigir según rol
       if (isAuthenticated && isLoginRoute) {
-        return AppRoutes.home;
+        if (userRole == AppConstants.roleEncargadoAlmacen) {
+          return AppRoutes.warehouseHome;
+        } else {
+          return AppRoutes.transfers;
+        }
       }
 
       return null;
@@ -96,6 +103,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
+      ),
+
+      // Warehouse Home (Encargado de Almacén)
+      GoRoute(
+        path: AppRoutes.warehouseHome,
+        builder: (context, state) => const WarehouseHomeScreen(),
       ),
 
       // Transfers

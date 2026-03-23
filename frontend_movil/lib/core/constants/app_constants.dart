@@ -15,8 +15,8 @@ class AppConstants {
   // User Roles (debe coincidir con el backend)
   static const String roleAdmin = 'ADMIN';
   static const String roleTransportista = 'TRANSPORTISTA';
-  static const String roleEncargadoOrigen = 'ENC_ORIGEN';
-  static const String roleEncargadoDestino = 'ENC_DESTINO';
+  static const String roleEncargadoAlmacen = 'ENCARGADO_ALMACEN';
+
 
   // Transfer Status
   static const String statusPendiente = 'PENDIENTE';
