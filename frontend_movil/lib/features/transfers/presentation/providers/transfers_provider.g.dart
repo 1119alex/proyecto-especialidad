@@ -246,7 +246,7 @@ final transfersProvider =
 );
 
 typedef _$Transfers = AutoDisposeAsyncNotifier<List<TransferEntity>>;
-String _$transferDetailHash() => r'506501e6c5945f92c9f9934d485090e5f55260f0';
+String _$transferDetailHash() => r'107cf4698fb418349874494486adb76470c72e31';
 
 abstract class _$TransferDetail
     extends BuildlessAutoDisposeAsyncNotifier<TransferEntity> {

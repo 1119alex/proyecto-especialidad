@@ -60,23 +60,27 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       ref.invalidate(transfersProvider);
       ref.invalidate(transferDetailProvider(widget.transferId));
 
-      // Mostrar mensaje de éxito
+      // Mostrar mensaje de éxito según ubicación
+      final successMessage = widget.location == 'origin'
+          ? 'QR verificado exitosamente. Iniciando tránsito...'
+          : 'QR verificado exitosamente. ¡Transferencia completada!';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'QR verificado exitosamente. Iniciando tránsito...',
-                  style: TextStyle(fontSize: 15),
+                  successMessage,
+                  style: const TextStyle(fontSize: 15),
                 ),
               ),
             ],
           ),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
 

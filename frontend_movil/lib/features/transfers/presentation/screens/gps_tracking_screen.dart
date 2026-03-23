@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../providers/gps_tracking_provider.dart';
+import '../providers/transfers_provider.dart';
 
 class GPSTrackingScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -157,6 +158,8 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   }
 
   Future<void> _confirmArrival() async {
+    debugPrint('🔔 Botón Confirmar Llegada presionado');
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -179,15 +182,69 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
     );
 
     if (confirmed == true) {
-      // TODO: Update transfer status to LLEGADA_DESTINO
-      if (mounted) {
-        Navigator.of(context).pop();
+      // Actualizar estado a LLEGADA_DESTINO
+      try {
+        debugPrint('🚀 Confirmando llegada al destino - Transfer ID: ${widget.transferId}');
+
+        await ref
+            .read(transferDetailProvider(widget.transferId).notifier)
+            .arriveDestination();
+
+        debugPrint('✅ Llegada confirmada exitosamente');
+
+        if (!mounted) return;
+
+        // Invalidar providers para refrescar
+        ref.invalidate(transfersProvider);
+        ref.invalidate(transferDetailProvider(widget.transferId));
+
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '¡Llegada confirmada! Ahora puedes escanear el QR en el almacén destino.',
+                    style: TextStyle(fontSize: 15),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        // Volver a la pantalla anterior después de un delay
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        });
+      } catch (e) {
+        debugPrint('❌ ERROR al confirmar llegada: $e');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al confirmar llegada: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
+    } else {
+      debugPrint('❌ Usuario canceló la confirmación');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏗️ Building GPS Tracking Screen - Transfer ID: ${widget.transferId}');
     final progressPercentage = 0.58; // Mock progress
 
     return Scaffold(

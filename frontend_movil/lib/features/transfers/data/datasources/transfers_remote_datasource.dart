@@ -178,4 +178,33 @@ class TransfersRemoteDatasource {
       throw Exception('Error inesperado: $e');
     }
   }
+
+  /// Confirmar llegada al destino
+  Future<TransferModel> arriveDestination(int id) async {
+    try {
+      print('📡 Enviando PATCH a: ${ApiConstants.transfersEndpoint}/$id/arrive-destination');
+
+      final response = await _apiClient
+          .patch('${ApiConstants.transfersEndpoint}/$id/arrive-destination');
+
+      print('✅ Response: ${response.statusCode} - ${response.data}');
+
+      return TransferModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      print('❌ DioException: ${e.message}');
+      print('❌ Status: ${e.response?.statusCode}');
+      print('❌ Data: ${e.response?.data}');
+
+      if (e.response?.statusCode == 400) {
+        throw Exception(e.response?.data['message'] ??
+            'Estado incorrecto para confirmar llegada');
+      } else if (e.response?.statusCode == 404) {
+        throw Exception('Transferencia no encontrada');
+      }
+      throw Exception('Error al confirmar llegada: ${e.message}');
+    } catch (e) {
+      print('❌ Error inesperado: $e');
+      throw Exception('Error inesperado: $e');
+    }
+  }
 }

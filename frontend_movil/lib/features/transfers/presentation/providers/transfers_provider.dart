@@ -80,6 +80,18 @@ class TransferDetail extends _$TransferDetail {
       return model.toEntity();
     });
   }
+
+  /// Confirmar llegada al destino
+  Future<void> arriveDestination() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final datasource = ref.read(transfersRemoteDatasourceProvider);
+      final model = await datasource.arriveDestination(transferId);
+      // Invalidar el provider de transfers para refrescar la lista
+      ref.invalidate(transfersProvider);
+      return model.toEntity();
+    });
+  }
 }
 
 /// Provider para filtrar transferencias por estado localmente
