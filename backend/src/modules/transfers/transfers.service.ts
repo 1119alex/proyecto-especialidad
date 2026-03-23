@@ -363,7 +363,15 @@ export class TransfersService {
   async arriveDestination(id: number): Promise<Transfer> {
     const transfer = await this.findOne(id);
 
+    console.log(`\n🚚 ============================================`);
+    console.log(`📍 CONFIRMAR LLEGADA AL DESTINO`);
+    console.log(`Transfer ID: ${id}`);
+    console.log(`Transfer Code: ${transfer.transferCode}`);
+    console.log(`Estado actual: ${transfer.status}`);
+
     if (transfer.status !== TransferStatus.EN_TRANSITO) {
+      console.log(`❌ ERROR: Estado inválido. Se requiere EN_TRANSITO`);
+      console.log(`============================================\n`);
       throw new BadRequestException(
         'Solo se puede marcar llegada de transferencias en tránsito',
       );
@@ -371,7 +379,14 @@ export class TransfersService {
 
     transfer.status = TransferStatus.LLEGADA_DESTINO;
     transfer.actualArrivalTime = new Date();
-    return this.transferRepository.save(transfer);
+    const saved = await this.transferRepository.save(transfer);
+
+    console.log(`✅ Estado cambiado exitosamente`);
+    console.log(`Nuevo estado: ${saved.status}`);
+    console.log(`Hora de llegada: ${saved.actualArrivalTime}`);
+    console.log(`============================================\n`);
+
+    return saved;
   }
 
   async complete(
@@ -473,7 +488,18 @@ export class TransfersService {
     // Cambiar estado a LISTA_DESPACHO al generar el QR
     transfer.status = TransferStatus.LISTA_DESPACHO;
 
+    console.log(`\n📦 ============================================`);
+    console.log(`🔳 GENERAR CÓDIGO QR`);
+    console.log(`Transfer ID: ${id}`);
+    console.log(`Transfer Code: ${transfer.transferCode}`);
+    console.log(`QR Code: ${qrData}`);
+    console.log(`Estado anterior: EN_PREPARACION`);
+    console.log(`Estado nuevo: LISTA_DESPACHO`);
+
     await this.transferRepository.save(transfer);
+
+    console.log(`✅ QR generado y estado actualizado`);
+    console.log(`============================================\n`);
 
     // Generar imagen QR en base64
     const qrImage = await QRCode.toDataURL(qrData);

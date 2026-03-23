@@ -184,8 +184,10 @@ class TransfersRemoteDatasource {
     try {
       print('📡 Enviando PATCH a: ${ApiConstants.transfersEndpoint}/$id/arrive-destination');
 
-      final response = await _apiClient
-          .patch('${ApiConstants.transfersEndpoint}/$id/arrive-destination');
+      final response = await _apiClient.patch(
+        '${ApiConstants.transfersEndpoint}/$id/arrive-destination',
+        data: {}, // Enviar objeto vacío
+      );
 
       print('✅ Response: ${response.statusCode} - ${response.data}');
 
