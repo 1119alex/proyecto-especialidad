@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
+import { Product } from '../../entities/product.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
@@ -23,6 +24,8 @@ export class TransfersService {
     private readonly transferDetailRepository: Repository<TransferDetail>,
     @InjectRepository(TrackingLog)
     private readonly trackingLogRepository: Repository<TrackingLog>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
   ) {}
 
   async create(
@@ -68,13 +71,29 @@ export class TransfersService {
     const savedTransfer = await this.transferRepository.save(transfer);
 
     // Crear los detalles de la transferencia
-    const details = createTransferDto.details.map((detail) => {
-      const transferDetail = new TransferDetail();
-      transferDetail.transferId = savedTransfer.id;
-      transferDetail.productId = detail.productId;
-      transferDetail.quantityExpected = detail.quantity;
-      return transferDetail;
-    });
+    const details = await Promise.all(
+      createTransferDto.details.map(async (detail) => {
+        // Obtener datos del producto
+        const product = await this.productRepository.findOne({
+          where: { id: detail.productId },
+        });
+
+        if (!product) {
+          throw new NotFoundException(
+            `Producto con ID ${detail.productId} no encontrado`,
+          );
+        }
+
+        const transferDetail = new TransferDetail();
+        transferDetail.transferId = savedTransfer.id;
+        transferDetail.productId = detail.productId;
+        transferDetail.productSku = product.sku;
+        transferDetail.productName = product.name;
+        transferDetail.unit = product.unit;
+        transferDetail.quantityExpected = detail.quantity;
+        return transferDetail;
+      }),
+    );
 
     await this.transferDetailRepository.save(details);
 
