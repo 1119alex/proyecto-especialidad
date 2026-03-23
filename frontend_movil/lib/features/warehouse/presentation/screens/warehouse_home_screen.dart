@@ -506,6 +506,9 @@ class _OutgoingTransfersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final transfersAsync = ref.watch(transfersProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF1E293B),
       appBar: AppBar(
@@ -519,14 +522,248 @@ class _OutgoingTransfersTab extends ConsumerWidget {
           ),
         ),
       ),
-      body: const Center(
-        child: Text(
-          'Transferencias de Salida\n(Próximamente)',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
+      body: authState.when(
+        data: (auth) {
+          final warehouseId = auth.warehouseId;
+
+          return transfersAsync.when(
+            data: (transfers) {
+              // Filtrar transferencias donde este almacén es el ORIGEN
+              final outgoingTransfers = warehouseId != null
+                  ? transfers
+                      .where((t) => t.originWarehouseId == warehouseId)
+                      .toList()
+                  : <TransferEntity>[];
+
+              if (outgoingTransfers.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.inbox_outlined,
+                        size: 64,
+                        color: Colors.white38,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No hay transferencias de salida',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: outgoingTransfers.length,
+                itemBuilder: (context, index) {
+                  final transfer = outgoingTransfers[index];
+                  return _TransferCard(transfer: transfer);
+                },
+              );
+            },
+            loading: () => const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF3B82F6),
+              ),
+            ),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: $error',
+                    style: const TextStyle(color: Colors.white70),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+        ),
+        error: (error, stack) => Center(
+          child: Text(
+            'Error de autenticación',
+            style: const TextStyle(color: Colors.white70),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget de tarjeta de transferencia
+class _TransferCard extends StatelessWidget {
+  final TransferEntity transfer;
+
+  const _TransferCard({required this.transfer});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: const Color(0xFF334155),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: () {
+          context.push('/transfers/${transfer.id}');
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header con código y estado
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    transfer.transferCode,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  _buildStatusChip(transfer.status),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Origen y Destino
+              Row(
+                children: [
+                  const Icon(
+                    Icons.warehouse,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      transfer.originWarehouse?.name ?? 'Origen',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      transfer.destinationWarehouse?.name ?? 'Destino',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (transfer.details != null && transfer.details!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.inventory_2,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${transfer.details!.length} producto(s)',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    String label;
+
+    switch (status) {
+      case 'PENDIENTE':
+        color = const Color(0xFF6B7280);
+        label = 'Pendiente';
+        break;
+      case 'EN_PREPARACION':
+        color = const Color(0xFFFBBF24);
+        label = 'En Preparación';
+        break;
+      case 'LISTA_DESPACHO':
+        color = const Color(0xFF3B82F6);
+        label = 'Lista';
+        break;
+      case 'EN_TRANSITO':
+        color = const Color(0xFF8B5CF6);
+        label = 'En Tránsito';
+        break;
+      case 'LLEGADA_DESTINO':
+        color = const Color(0xFF10B981);
+        label = 'Llegada';
+        break;
+      case 'COMPLETADA':
+        color = const Color(0xFF059669);
+        label = 'Completada';
+        break;
+      case 'CANCELADA':
+        color = const Color(0xFFEF4444);
+        label = 'Cancelada';
+        break;
+      default:
+        color = const Color(0xFF6B7280);
+        label = status;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -539,6 +776,9 @@ class _IncomingTransfersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final transfersAsync = ref.watch(transfersProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF1E293B),
       appBar: AppBar(
@@ -552,13 +792,83 @@ class _IncomingTransfersTab extends ConsumerWidget {
           ),
         ),
       ),
-      body: const Center(
-        child: Text(
-          'Transferencias de Entrada\n(Próximamente)',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
+      body: authState.when(
+        data: (auth) {
+          final warehouseId = auth.warehouseId;
+
+          return transfersAsync.when(
+            data: (transfers) {
+              // Filtrar transferencias donde este almacén es el DESTINO
+              final incomingTransfers = warehouseId != null
+                  ? transfers
+                      .where((t) => t.destinationWarehouseId == warehouseId)
+                      .toList()
+                  : <TransferEntity>[];
+
+              if (incomingTransfers.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.inbox_outlined,
+                        size: 64,
+                        color: Colors.white38,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No hay transferencias de entrada',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: incomingTransfers.length,
+                itemBuilder: (context, index) {
+                  final transfer = incomingTransfers[index];
+                  return _TransferCard(transfer: transfer);
+                },
+              );
+            },
+            loading: () => const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF3B82F6),
+              ),
+            ),
+            error: (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: $error',
+                    style: const TextStyle(color: Colors.white70),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+        ),
+        error: (error, stack) => Center(
+          child: Text(
+            'Error de autenticación',
+            style: const TextStyle(color: Colors.white70),
           ),
         ),
       ),

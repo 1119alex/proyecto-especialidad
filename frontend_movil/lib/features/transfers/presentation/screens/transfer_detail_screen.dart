@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/transfers_provider.dart';
 import '../../domain/entities/transfer_entity.dart';
+import '../../../../shared/providers/auth_provider.dart';
+import '../../../../core/constants/app_constants.dart';
 
 /// Pantalla de detalle de una transferencia
 class TransferDetailScreen extends ConsumerWidget {
@@ -83,10 +86,258 @@ class TransferDetailScreen extends ConsumerWidget {
             // Notas
             if (transfer.notes != null && transfer.notes!.isNotEmpty)
               _buildNotesSection(transfer),
+
+            // Botones de acción
+            const SizedBox(height: 20),
+            _buildActionButtons(context, ref, transfer),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildActionButtons(BuildContext context, WidgetRef ref, TransferEntity transfer) {
+    final authState = ref.watch(authProvider);
+    final userRole = authState.value?.userRole;
+    final userWarehouseId = authState.value?.warehouseId;
+
+    final List<Widget> buttons = [];
+
+    // Botones para ENCARGADO_ALMACEN
+    if (userRole == AppConstants.roleEncargadoAlmacen) {
+      // Si soy el encargado del almacén de ORIGEN
+      if (userWarehouseId == transfer.originWarehouseId) {
+        // Iniciar preparación cuando está ASIGNADA
+        if (transfer.status == 'ASIGNADA') {
+          buttons.add(
+            _buildActionButton(
+              label: 'Iniciar Preparación de Carga',
+              icon: Icons.inventory,
+              color: const Color(0xFF10B981),
+              onPressed: () => _startPreparation(context, ref, transfer.id),
+            ),
+          );
+        }
+
+        // Mostrar QR cuando está EN_PREPARACION o LISTA_DESPACHO
+        if (transfer.status == 'EN_PREPARACION' || transfer.status == 'LISTA_DESPACHO') {
+          buttons.add(
+            _buildActionButton(
+              label: 'Mostrar Código QR',
+              icon: Icons.qr_code,
+              color: const Color(0xFF3B82F6),
+              onPressed: () {
+                context.push('/qr-display', extra: {
+                  'transferId': transfer.id,
+                  'transferCode': transfer.transferCode,
+                  'originName': transfer.originWarehouse?.name ?? 'Origen',
+                  'destinationName': transfer.destinationWarehouse?.name ?? 'Destino',
+                  'totalProducts': transfer.details?.length ?? 0,
+                });
+              },
+            ),
+          );
+        }
+      }
+
+      // Si soy el encargado del almacén de DESTINO
+      if (userWarehouseId == transfer.destinationWarehouseId) {
+        // Escanear QR al recibir
+        if (transfer.status == 'LLEGADA_DESTINO') {
+          buttons.add(
+            _buildActionButton(
+              label: 'Escanear QR y Recibir',
+              icon: Icons.qr_code_scanner,
+              color: const Color(0xFF10B981),
+              onPressed: () {
+                context.push('/qr-scanner', extra: {
+                  'transferId': transfer.id,
+                  'location': 'destination',
+                });
+              },
+            ),
+          );
+        }
+      }
+    }
+
+    // Botones para TRANSPORTISTA
+    if (userRole == AppConstants.roleTransportista) {
+      // Escanear QR en origen
+      if (transfer.status == 'LISTA_DESPACHO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Escanear QR - Recoger Carga',
+            icon: Icons.qr_code_scanner,
+            color: const Color(0xFF3B82F6),
+            onPressed: () {
+              context.push('/qr-scanner', extra: {
+                'transferId': transfer.id,
+                'location': 'origin',
+              });
+            },
+          ),
+        );
+      }
+
+      // Ver seguimiento GPS
+      if (transfer.status == 'EN_TRANSITO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Ver Seguimiento GPS',
+            icon: Icons.navigation,
+            color: const Color(0xFFFBBF24),
+            onPressed: () {
+              context.push('/gps-tracking', extra: {
+                'transferId': transfer.id,
+                'transferCode': transfer.transferCode,
+                'status': transfer.status,
+              });
+            },
+          ),
+        );
+      }
+    }
+
+    if (buttons.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: buttons.map((btn) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: btn,
+      )).toList(),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 24),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startPreparation(BuildContext context, WidgetRef ref, int transferId) async {
+    // Mostrar diálogo de confirmación
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A3544),
+        title: const Text(
+          'Iniciar Preparación',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          '¿Desea iniciar la preparación de esta transferencia? Esto generará el código QR para el transportista.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+            ),
+            child: const Text('Iniciar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      // Mostrar indicador de carga
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Colors.blue),
+        ),
+      );
+
+      // Llamar al método para iniciar preparación
+      await ref.read(transferDetailProvider(transferId).notifier).startPreparation();
+
+      if (!context.mounted) return;
+
+      // Cerrar indicador de carga
+      Navigator.of(context).pop();
+
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Preparación iniciada. Ahora puede mostrar el código QR.',
+                  style: TextStyle(fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      // Cerrar indicador de carga si está abierto
+      Navigator.of(context).pop();
+
+      // Mostrar error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  e.toString().replaceAll('Exception: ', ''),
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   Widget _buildHeaderSection(TransferEntity transfer) {
@@ -552,13 +803,33 @@ class TransferDetailScreen extends ConsumerWidget {
         bgColor = Colors.orange.shade700;
         label = 'PENDIENTE';
         break;
+      case 'ASIGNADA':
+        bgColor = Colors.amber.shade700;
+        label = 'ASIGNADA';
+        break;
+      case 'EN_PREPARACION':
+        bgColor = Colors.yellow.shade700;
+        label = 'EN PREPARACIÓN';
+        break;
+      case 'LISTA_DESPACHO':
+        bgColor = Colors.lime.shade700;
+        label = 'LISTA DESPACHO';
+        break;
       case 'EN_TRANSITO':
         bgColor = Colors.blue.shade700;
         label = 'EN TRÁNSITO';
         break;
+      case 'LLEGADA_DESTINO':
+        bgColor = Colors.indigo.shade700;
+        label = 'LLEGADA DESTINO';
+        break;
       case 'COMPLETADA':
         bgColor = Colors.green.shade700;
         label = 'COMPLETADA';
+        break;
+      case 'COMPLETADA_CON_DISCREPANCIA':
+        bgColor = Colors.teal.shade700;
+        label = 'COMPLETADA CON DISCREPANCIA';
         break;
       case 'CANCELADA':
         bgColor = Colors.red.shade700;

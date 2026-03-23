@@ -136,7 +136,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return QRDisplayScreen(
             transferId: extra['transferId'] as int,
             transferCode: extra['transferCode'] as String,
-            qrCode: extra['qrCode'] as String,
             originName: extra['originName'] as String,
             destinationName: extra['destinationName'] as String,
             totalProducts: extra['totalProducts'] as int,

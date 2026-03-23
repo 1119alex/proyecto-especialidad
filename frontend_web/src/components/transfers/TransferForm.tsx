@@ -134,10 +134,31 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
     }
 
     try {
+      // Prepare data: convert empty strings to undefined for optional fields
+      const dataToSend: any = {
+        ...formData,
+        vehicleId: formData.vehicleId === 0 ? undefined : formData.vehicleId,
+        driverId: formData.driverId === 0 ? undefined : formData.driverId,
+        estimatedDepartureTime: formData.estimatedDepartureTime === '' ? undefined : formData.estimatedDepartureTime,
+        estimatedArrivalTime: formData.estimatedArrivalTime === '' ? undefined : formData.estimatedArrivalTime,
+        // Ensure details have numeric quantities
+        details: formData.details.map(d => ({
+          productId: Number(d.productId),
+          quantity: Number(d.quantity),
+        })),
+      };
+
+      // Remove undefined values to avoid sending them in PATCH requests
+      Object.keys(dataToSend).forEach(key => {
+        if (dataToSend[key] === undefined) {
+          delete dataToSend[key];
+        }
+      });
+
       if (transfer) {
-        await transferService.update(transfer.id, formData);
+        await transferService.update(transfer.id, dataToSend);
       } else {
-        await transferService.create(formData);
+        await transferService.create(dataToSend);
       }
       onClose();
     } catch (err: any) {

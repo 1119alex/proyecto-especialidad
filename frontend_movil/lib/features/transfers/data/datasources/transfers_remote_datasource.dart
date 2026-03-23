@@ -158,4 +158,24 @@ class TransfersRemoteDatasource {
       throw Exception('Error inesperado: $e');
     }
   }
+
+  /// Iniciar preparación de transferencia (ASIGNADA → EN_PREPARACION)
+  Future<TransferModel> startPreparation(int transferId) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConstants.transfersEndpoint}/$transferId/start-preparation',
+      );
+      return TransferModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw Exception(
+            e.response?.data['message'] ?? 'Estado incorrecto para iniciar preparación');
+      } else if (e.response?.statusCode == 404) {
+        throw Exception('Transferencia no encontrada');
+      }
+      throw Exception('Error al iniciar preparación: ${e.message}');
+    } catch (e) {
+      throw Exception('Error inesperado: $e');
+    }
+  }
 }

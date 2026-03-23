@@ -55,7 +55,14 @@ export class TransfersService {
     transfer.estimatedArrivalTime = createTransferDto.estimatedArrivalTime
       ? new Date(createTransferDto.estimatedArrivalTime)
       : undefined;
-    transfer.status = TransferStatus.PENDIENTE;
+
+    // Determinar el estado inicial según si tiene vehículo y conductor asignados
+    if (createTransferDto.vehicleId && createTransferDto.driverId) {
+      transfer.status = TransferStatus.ASIGNADA;
+    } else {
+      transfer.status = TransferStatus.PENDIENTE;
+    }
+
     transfer.createdByUserId = createdByUserId;
 
     const savedTransfer = await this.transferRepository.save(transfer);
@@ -146,13 +153,66 @@ export class TransfersService {
       );
     }
 
-    Object.assign(transfer, updateTransferDto);
+    // Excluir 'details' del DTO ya que no se pueden actualizar directamente
+    const { details, ...updateData } = updateTransferDto;
+
+    console.log('📝 Update data received:', updateData);
+    console.log('📦 Transfer before update:', {
+      id: transfer.id,
+      status: transfer.status,
+      vehicleId: transfer.vehicleId,
+      driverId: transfer.driverId
+    });
+
+    // Filtrar campos undefined para evitar sobrescribir valores existentes
+    const cleanUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+    );
+
+    console.log('🧹 Cleaned update data:', cleanUpdateData);
+
+    Object.assign(transfer, cleanUpdateData);
+
+    console.log('📦 Transfer after Object.assign:', {
+      id: transfer.id,
+      status: transfer.status,
+      vehicleId: transfer.vehicleId,
+      driverId: transfer.driverId
+    });
 
     if (updateTransferDto.status === TransferStatus.CANCELADA) {
       transfer.cancelledAt = new Date();
     }
 
-    return this.transferRepository.save(transfer);
+    // Convertir fechas si están presentes
+    if (updateData.estimatedDepartureTime) {
+      transfer.estimatedDepartureTime = new Date(updateData.estimatedDepartureTime);
+    }
+    if (updateData.estimatedArrivalTime) {
+      transfer.estimatedArrivalTime = new Date(updateData.estimatedArrivalTime);
+    }
+
+    // Si se está asignando vehículo y conductor a una transferencia PENDIENTE,
+    // cambiar automáticamente el estado a ASIGNADA
+    console.log('🔍 Checking auto-status change:', {
+      currentStatus: transfer.status,
+      vehicleId: transfer.vehicleId,
+      driverId: transfer.driverId,
+      willChangeToAsignada: transfer.status === TransferStatus.PENDIENTE && transfer.vehicleId && transfer.driverId
+    });
+
+    if (
+      transfer.status === TransferStatus.PENDIENTE &&
+      transfer.vehicleId &&
+      transfer.driverId
+    ) {
+      console.log('✅ Auto-changing status from PENDIENTE to ASIGNADA');
+      transfer.status = TransferStatus.ASIGNADA;
+    }
+
+    const savedTransfer = await this.transferRepository.save(transfer);
+    console.log('💾 Saved transfer with status:', savedTransfer.status);
+    return savedTransfer;
   }
 
   async assignVehicleAndDriver(

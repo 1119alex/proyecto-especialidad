@@ -68,6 +68,18 @@ class TransferDetail extends _$TransferDetail {
       return await repository.getTransferById(transferId);
     });
   }
+
+  /// Iniciar preparación de la transferencia
+  Future<void> startPreparation() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final datasource = ref.read(transfersRemoteDatasourceProvider);
+      final model = await datasource.startPreparation(transferId);
+      // Invalidar el provider de transfers para refrescar la lista
+      ref.invalidate(transfersProvider);
+      return model.toEntity();
+    });
+  }
 }
 
 /// Provider para filtrar transferencias por estado localmente

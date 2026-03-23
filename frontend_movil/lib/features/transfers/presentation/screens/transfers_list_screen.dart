@@ -865,11 +865,9 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
   }
 
   void _navigateToQRDisplay(BuildContext context, TransferEntity transfer) {
-    // TODO: Navigate to QR display screen
     context.push('/qr-display', extra: {
       'transferId': transfer.id,
       'transferCode': transfer.transferCode,
-      'qrCode': transfer.qrCode ?? 'TRF-${transfer.id}-${DateTime.now().millisecondsSinceEpoch}',
       'originName': transfer.originWarehouse?.name ?? 'N/A',
       'destinationName': transfer.destinationWarehouse?.name ?? 'N/A',
       'totalProducts': transfer.details?.length ?? 0,
@@ -877,7 +875,6 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
   }
 
   void _navigateToQRScanner(BuildContext context, TransferEntity transfer, String location) {
-    // TODO: Navigate to QR scanner screen
     context.push('/qr-scanner', extra: {
       'transferId': transfer.id,
       'location': location,
