@@ -184,7 +184,7 @@ class _TransferQRProviderElement
   int get transferId => (origin as TransferQRProvider).transferId;
 }
 
-String _$qRVerifierHash() => r'3a1beb26d6c516410810e7ff1d7c215460e2b96a';
+String _$qRVerifierHash() => r'5cc671b88717a5d1c3996bac9780518f051f6076';
 
 /// Provider para verificar QR
 ///

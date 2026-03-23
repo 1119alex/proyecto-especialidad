@@ -551,6 +551,10 @@ export class TransfersService {
       );
     }
 
+    console.log(`📍 GPS Tracking recibido - Transfer #${transferId}:`);
+    console.log(`   Lat: ${data.latitude}, Lng: ${data.longitude}`);
+    console.log(`   Velocidad: ${data.speed || 0} km/h, Precisión: ${data.accuracy || 0}m`);
+
     const tracking = this.trackingLogRepository.create({
       transferId,
       latitude: data.latitude,
@@ -560,7 +564,10 @@ export class TransfersService {
       recordedAt: new Date(),
     });
 
-    return this.trackingLogRepository.save(tracking);
+    const saved = await this.trackingLogRepository.save(tracking);
+    console.log(`   ✅ Guardado en DB con ID: ${saved.id}`);
+
+    return saved;
   }
 
   async getTrackingHistory(transferId: number): Promise<TrackingLog[]> {

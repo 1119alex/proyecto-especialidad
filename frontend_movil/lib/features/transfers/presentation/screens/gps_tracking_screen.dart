@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../providers/gps_tracking_provider.dart';
 
 class GPSTrackingScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -107,14 +108,20 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
       });
 
-      // TODO: Send GPS data to backend
-      // await ref.read(transfersProvider.notifier).addGPSTracking(
-      //   widget.transferId,
-      //   position.latitude,
-      //   position.longitude,
-      //   _currentSpeed,
-      //   position.accuracy,
-      // );
+      // Enviar datos GPS al backend
+      try {
+        await ref.read(gPSTrackerProvider.notifier).sendLocation(
+          transferId: widget.transferId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          speed: _currentSpeed,
+          accuracy: position.accuracy,
+        );
+        debugPrint('GPS data sent: lat=${position.latitude}, lng=${position.longitude}');
+      } catch (e) {
+        // No interrumpir el tracking si falla el envío
+        debugPrint('Error sending GPS data: $e');
+      }
     } catch (e) {
       debugPrint('Error getting location: $e');
       if (mounted) {
