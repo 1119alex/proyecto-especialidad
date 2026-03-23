@@ -217,6 +217,11 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
   Widget _buildActiveTrip(AsyncValue<List<TransferEntity>> transfersAsync) {
     return transfersAsync.when(
       data: (transfers) {
+        // Si no hay transferencias, no mostrar nada
+        if (transfers.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
         // Buscar viaje activo (EN_TRANSITO)
         final activeTrip = transfers.firstWhere(
           (t) => t.status == 'EN_TRANSITO',
