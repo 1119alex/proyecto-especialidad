@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,
+  UnauthorizedException,Logger
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,6 +17,8 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class TransfersService {
+    private readonly logger = new Logger(TransfersService.name);
+  
   constructor(
     @InjectRepository(Transfer)
     private readonly transferRepository: Repository<Transfer>,
@@ -363,15 +365,15 @@ export class TransfersService {
   async arriveDestination(id: number): Promise<Transfer> {
     const transfer = await this.findOne(id);
 
-    console.log(`\n🚚 ============================================`);
-    console.log(`📍 CONFIRMAR LLEGADA AL DESTINO`);
-    console.log(`Transfer ID: ${id}`);
-    console.log(`Transfer Code: ${transfer.transferCode}`);
-    console.log(`Estado actual: ${transfer.status}`);
+    this.logger.log(`\n🚚 ============================================`);
+    this.logger.log(`📍 CONFIRMAR LLEGADA AL DESTINO`);
+    this.logger.log(`Transfer ID: ${id}`);
+    this.logger.log(`Transfer Code: ${transfer.transferCode}`);
+    this.logger.log(`Estado actual: ${transfer.status}`);
 
     if (transfer.status !== TransferStatus.EN_TRANSITO) {
-      console.log(`❌ ERROR: Estado inválido. Se requiere EN_TRANSITO`);
-      console.log(`============================================\n`);
+      this.logger.log(`❌ ERROR: Estado inválido. Se requiere EN_TRANSITO`);
+      this.logger.log(`============================================\n`);
       throw new BadRequestException(
         'Solo se puede marcar llegada de transferencias en tránsito',
       );
@@ -381,10 +383,10 @@ export class TransfersService {
     transfer.actualArrivalTime = new Date();
     const saved = await this.transferRepository.save(transfer);
 
-    console.log(`✅ Estado cambiado exitosamente`);
-    console.log(`Nuevo estado: ${saved.status}`);
-    console.log(`Hora de llegada: ${saved.actualArrivalTime}`);
-    console.log(`============================================\n`);
+    this.logger.log(`✅ Estado cambiado exitosamente`);
+    this.logger.log(`Nuevo estado: ${saved.status}`);
+    this.logger.log(`Hora de llegada: ${saved.actualArrivalTime}`);
+    this.logger.log(`============================================\n`);
 
     return saved;
   }
@@ -488,12 +490,12 @@ export class TransfersService {
     // Cambiar estado a LISTA_DESPACHO al generar el QR
     transfer.status = TransferStatus.LISTA_DESPACHO;
 
-    console.log(`\n📦 ============================================`);
-    console.log(`🔳 GENERAR CÓDIGO QR`);
-    console.log(`Transfer ID: ${id}`);
-    console.log(`Transfer Code: ${transfer.transferCode}`);
-    console.log(`QR Code: ${qrData}`);
-    console.log(`Estado anterior: EN_PREPARACION`);
+    this.logger.log(`\n📦 ============================================`);
+    this.logger.log(`🔳 GENERAR CÓDIGO QR`);
+    this.logger.log(`Transfer ID: ${id}`);
+    this.logger.log(`Transfer Code: ${transfer.transferCode}`);
+    this.logger.log(`QR Code: ${qrData}`);
+    this.logger.log(`Estado anterior: EN_PREPARACION`);
     console.log(`Estado nuevo: LISTA_DESPACHO`);
 
     await this.transferRepository.save(transfer);
