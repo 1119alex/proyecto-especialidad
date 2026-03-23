@@ -111,14 +111,18 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
 
       // Enviar datos GPS al backend
       try {
-        await ref.read(gPSTrackerProvider.notifier).sendLocation(
-          transferId: widget.transferId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          speed: _currentSpeed,
-          accuracy: position.accuracy,
+        await ref
+            .read(gPSTrackerProvider.notifier)
+            .sendLocation(
+              transferId: widget.transferId,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              speed: _currentSpeed,
+              accuracy: position.accuracy,
+            );
+        debugPrint(
+          'GPS data sent: lat=${position.latitude}, lng=${position.longitude}',
         );
-        debugPrint('GPS data sent: lat=${position.latitude}, lng=${position.longitude}');
       } catch (e) {
         // No interrumpir el tracking si falla el envío
         debugPrint('Error sending GPS data: $e');
@@ -158,7 +162,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   }
 
   Future<void> _confirmArrival() async {
-    debugPrint('🔔 Botón Confirmar Llegada presionado');
+    debugPrint('🔔🔔🔔 INICIO _confirmArrival() 🔔🔔🔔');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -167,11 +171,17 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         content: const Text('¿Has llegado al destino?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () {
+              debugPrint('❌ Usuario presionó CANCELAR');
+              Navigator.of(context).pop(false);
+            },
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              debugPrint('✅ Usuario presionó CONFIRMAR');
+              Navigator.of(context).pop(true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
             ),
@@ -181,16 +191,26 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
       ),
     );
 
+    debugPrint('🔔 Dialog cerrado - confirmed: $confirmed');
+
     if (confirmed == true) {
+      debugPrint('🚀🚀🚀 INICIANDO PROCESO DE CONFIRMACIÓN 🚀🚀🚀');
+
       // Actualizar estado a LLEGADA_DESTINO
       try {
-        debugPrint('🚀 Confirmando llegada al destino - Transfer ID: ${widget.transferId}');
+        debugPrint(
+          '🚀 Confirmando llegada al destino - Transfer ID: ${widget.transferId}',
+        );
 
-        await ref
-            .read(transferDetailProvider(widget.transferId).notifier)
-            .arriveDestination();
+        // Llamar directamente al datasource
+        final datasource = ref.read(transfersRemoteDatasourceProvider);
+        debugPrint('🚀 Datasource obtenido, llamando arriveDestination...');
 
-        debugPrint('✅ Llegada confirmada exitosamente');
+        final result = await datasource.arriveDestination(widget.transferId);
+
+        debugPrint('✅✅✅ RESPUESTA RECIBIDA DEL BACKEND ✅✅✅');
+        debugPrint('✅ Transfer Code: ${result.transferCode}');
+        debugPrint('✅ Nuevo estado: ${result.status}');
 
         if (!mounted) return;
 
@@ -224,8 +244,10 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
             Navigator.of(context).pop();
           }
         });
-      } catch (e) {
-        debugPrint('❌ ERROR al confirmar llegada: $e');
+      } catch (e, stackTrace) {
+        debugPrint('❌❌❌ ERROR COMPLETO ❌❌❌');
+        debugPrint('❌ Error: $e');
+        debugPrint('❌ StackTrace: $stackTrace');
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -244,7 +266,9 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('🏗️ Building GPS Tracking Screen - Transfer ID: ${widget.transferId}');
+    debugPrint(
+      '🏗️ Building GPS Tracking Screen - Transfer ID: ${widget.transferId}',
+    );
     final progressPercentage = 0.58; // Mock progress
 
     return Scaffold(
@@ -294,10 +318,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF334155),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF475569),
-                  width: 2,
-                ),
+                border: Border.all(color: const Color(0xFF475569), width: 2),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(14),
@@ -307,10 +328,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF059669),
-                              Color(0xFF047857),
-                            ],
+                            colors: [Color(0xFF059669), Color(0xFF047857)],
                           ),
                         ),
                         child: const Center(
@@ -318,8 +336,9 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               CircularProgressIndicator(
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
                               ),
                               SizedBox(height: 16),
                               Text(
@@ -395,8 +414,9 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B)
-                                    .withValues(alpha: 0.9),
+                                color: const Color(
+                                  0xFF1E293B,
+                                ).withValues(alpha: 0.9),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -441,118 +461,196 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
             flex: 1,
             child: Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Speed and Time stats
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.speed,
-                          label: 'Velocidad',
-                          value: '${_currentSpeed.toStringAsFixed(0)} km/h',
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Speed and Time stats
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.speed,
+                            label: 'Velocidad',
+                            value: '${_currentSpeed.toStringAsFixed(0)} km/h',
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.access_time,
-                          label: 'Tiempo',
-                          value: '$_elapsedMinutes min',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.access_time,
+                            label: 'Tiempo',
+                            value: '$_elapsedMinutes min',
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // Distance and Status stats
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.route,
-                          label: 'Distancia',
-                          value: '${_totalDistance.toStringAsFixed(1)} km',
+                    // Distance and Status stats
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.route,
+                            label: 'Distancia',
+                            value: '${_totalDistance.toStringAsFixed(1)} km',
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          icon: Icons.check_circle,
-                          label: 'Estado',
-                          value: _trackingStatus,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            icon: Icons.check_circle,
+                            label: 'Estado',
+                            value: _trackingStatus,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Progress bar
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Progreso del recorrido',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
+                    // Progress bar
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Progreso del recorrido',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '${(progressPercentage * 100).toInt()}%',
-                            style: const TextStyle(
-                              color: Color(0xFF3B82F6),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                            Text(
+                              '${(progressPercentage * 100).toInt()}%',
+                              style: const TextStyle(
+                                color: Color(0xFF3B82F6),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progressPercentage,
-                          backgroundColor: const Color(0xFF475569),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF3B82F6),
-                          ),
-                          minHeight: 8,
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  // Confirm arrival button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _confirmArrival,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: progressPercentage,
+                            backgroundColor: const Color(0xFF475569),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF3B82F6),
+                            ),
+                            minHeight: 8,
+                          ),
                         ),
-                      ),
-                      child: const Text(
-                        'Confirmar Llegada',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // NEW BUTTON: Notificar Llegada
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          print(
+                            '🟢🟢🟢 BOTÓN NOTIFICAR LLEGADA PRESIONADO 🟢🟢🟢',
+                          );
+
+                          try {
+                            print('🟢 Obteniendo datasource...');
+                            final datasource = ref.read(
+                              transfersRemoteDatasourceProvider,
+                            );
+
+                            print(
+                              '🟢 Llamando arriveDestination para transfer ${widget.transferId}',
+                            );
+                            final result = await datasource.arriveDestination(
+                              widget.transferId,
+                            );
+
+                            print('🟢 ✅ ÉXITO! Nuevo estado: ${result.status}');
+
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '✅ Estado cambiado a: ${result.status}',
+                                ),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+
+                            // Refrescar providers
+                            ref.invalidate(transfersProvider);
+                          } catch (e) {
+                            print('🟢 ❌ ERROR: $e');
+
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('❌ Error: $e'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.notifications_active, size: 24),
+                        label: const Text(
+                          'Notificar Llegada',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFBBF24),
+                          foregroundColor: const Color(0xFF1E293B),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 12),
+
+                    // Original Confirm arrival button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          debugPrint('🔴🔴🔴 BOTÓN PRESIONADO - INICIO 🔴🔴🔴');
+                          _confirmArrival();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Confirmar Llegada',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -578,10 +676,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const SizedBox(height: 4),
           Text(

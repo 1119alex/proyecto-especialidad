@@ -10,9 +10,11 @@ import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
 import { Product } from '../../entities/product.entity';
+import { User } from '../../entities/user.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
+import { UserRole } from '../../common/enums/user-role.enum';
 import * as QRCode from 'qrcode';
 
 @Injectable()
@@ -102,19 +104,86 @@ export class TransfersService {
     return this.findOne(savedTransfer.id);
   }
 
-  async findAll(): Promise<Transfer[]> {
-    return this.transferRepository.find({
-      relations: [
-        'originWarehouse',
-        'destinationWarehouse',
-        'vehicle',
-        'driver',
-        'createdBy',
-        'details',
-        'details.product',
-      ],
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(user?: User): Promise<Transfer[]> {
+    const warehouseId = user?.warehouseStaffProfile?.warehouseId;
+
+    this.logger.log(`\n📋 ============================================`);
+    this.logger.log(`📋 FIND ALL TRANSFERS`);
+    this.logger.log(`User ID: ${user?.id}`);
+    this.logger.log(`User Role: ${user?.role}`);
+    this.logger.log(`User Warehouse ID: ${warehouseId || 'N/A'}`);
+
+    // Si es ADMIN, retornar todas las transferencias
+    if (!user || user.role === UserRole.ADMIN) {
+      this.logger.log(`✅ Admin user - returning all transfers`);
+      this.logger.log(`============================================\n`);
+      return this.transferRepository.find({
+        relations: [
+          'originWarehouse',
+          'destinationWarehouse',
+          'vehicle',
+          'driver',
+          'createdBy',
+          'details',
+          'details.product',
+        ],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    // Si es TRANSPORTISTA, solo ver transferencias asignadas a él
+    if (user.role === UserRole.TRANSPORTISTA) {
+      this.logger.log(`🚚 Transportista - filtering by driverId: ${user.id}`);
+      this.logger.log(`============================================\n`);
+      return this.transferRepository.find({
+        where: { driverId: user.id },
+        relations: [
+          'originWarehouse',
+          'destinationWarehouse',
+          'vehicle',
+          'driver',
+          'createdBy',
+          'details',
+          'details.product',
+        ],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    // Si es ENCARGADO_ALMACEN, ver transferencias de su almacén
+    if (user.role === UserRole.ENCARGADO_ALMACEN) {
+      if (!warehouseId) {
+        this.logger.log(`⚠️ Warehouse manager without warehouseId - returning empty`);
+        this.logger.log(`============================================\n`);
+        return [];
+      }
+
+      this.logger.log(`📦 Warehouse manager - filtering by warehouseId: ${warehouseId}`);
+      this.logger.log(`   Looking for transfers where origin OR destination = ${warehouseId}`);
+      this.logger.log(`============================================\n`);
+
+      // Usar QueryBuilder para filtrar por origen O destino
+      return this.transferRepository
+        .createQueryBuilder('transfer')
+        .leftJoinAndSelect('transfer.originWarehouse', 'originWarehouse')
+        .leftJoinAndSelect('transfer.destinationWarehouse', 'destinationWarehouse')
+        .leftJoinAndSelect('transfer.vehicle', 'vehicle')
+        .leftJoinAndSelect('transfer.driver', 'driver')
+        .leftJoinAndSelect('transfer.createdBy', 'createdBy')
+        .leftJoinAndSelect('transfer.details', 'details')
+        .leftJoinAndSelect('details.product', 'product')
+        .where(
+          'transfer.originWarehouseId = :warehouseId OR transfer.destinationWarehouseId = :warehouseId',
+          { warehouseId },
+        )
+        .orderBy('transfer.createdAt', 'DESC')
+        .getMany();
+    }
+
+    // Por defecto, no retornar nada
+    this.logger.log(`⚠️ Unknown role - returning empty`);
+    this.logger.log(`============================================\n`);
+    return [];
   }
 
   async findOne(id: number): Promise<Transfer> {
@@ -546,7 +615,15 @@ export class TransfersService {
       };
     } else {
       // Verificación en destino
+      console.log(`\n🔳 ============================================`);
+      console.log(`📦 VERIFICAR QR EN DESTINO`);
+      console.log(`Transfer ID: ${id}`);
+      console.log(`Transfer Code: ${transfer.transferCode}`);
+      console.log(`Estado actual: ${transfer.status}`);
+
       if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
+        console.log(`❌ ERROR: Estado inválido. Se requiere LLEGADA_DESTINO`);
+        console.log(`============================================\n`);
         return {
           success: false,
           message: 'La transferencia debe haber llegado al destino',
@@ -554,11 +631,25 @@ export class TransfersService {
       }
 
       transfer.qrVerifiedAtDestination = new Date();
+      transfer.status = TransferStatus.COMPLETADA;
+      transfer.completedAt = new Date();
+
+      // Auto-completar con las cantidades esperadas (sin discrepancias)
+      for (const detail of transfer.details) {
+        detail.quantityReceived = detail.quantityExpected;
+        detail.hasDiscrepancy = false;
+      }
+
       await this.transferRepository.save(transfer);
+
+      console.log(`✅ QR verificado exitosamente en destino`);
+      console.log(`Nuevo estado: ${transfer.status}`);
+      console.log(`Fecha completada: ${transfer.completedAt}`);
+      console.log(`============================================\n`);
 
       return {
         success: true,
-        message: 'Verificación exitosa en destino. Puede proceder a completar la recepción.',
+        message: '¡Transferencia completada exitosamente!',
         transfer,
       };
     }

@@ -182,20 +182,33 @@ class TransfersRemoteDatasource {
   /// Confirmar llegada al destino
   Future<TransferModel> arriveDestination(int id) async {
     try {
-      print('📡 Enviando PATCH a: ${ApiConstants.transfersEndpoint}/$id/arrive-destination');
+      final url = '${ApiConstants.transfersEndpoint}/$id/arrive-destination';
+      print('🚀 [DATASOURCE] ========================================');
+      print('🚀 [DATASOURCE] arriveDestination iniciado');
+      print('🚀 [DATASOURCE] Transfer ID: $id');
+      print('🚀 [DATASOURCE] URL completa: ${ApiConstants.baseUrl}$url');
+      print('🚀 [DATASOURCE] Método: PATCH');
+      print('🚀 [DATASOURCE] Data: {}');
+      print('🚀 [DATASOURCE] ========================================');
 
       final response = await _apiClient.patch(
-        '${ApiConstants.transfersEndpoint}/$id/arrive-destination',
+        url,
         data: {}, // Enviar objeto vacío
       );
 
-      print('✅ Response: ${response.statusCode} - ${response.data}');
+      print('✅ [DATASOURCE] Response recibido:');
+      print('✅ [DATASOURCE] Status: ${response.statusCode}');
+      print('✅ [DATASOURCE] Data: ${response.data}');
 
       return TransferModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      print('❌ DioException: ${e.message}');
-      print('❌ Status: ${e.response?.statusCode}');
-      print('❌ Data: ${e.response?.data}');
+      print('❌ [DATASOURCE] DioException:');
+      print('❌ [DATASOURCE] Message: ${e.message}');
+      print('❌ [DATASOURCE] Status: ${e.response?.statusCode}');
+      print('❌ [DATASOURCE] Response Data: ${e.response?.data}');
+      print('❌ [DATASOURCE] Request URL: ${e.requestOptions.uri}');
+      print('❌ [DATASOURCE] Request Method: ${e.requestOptions.method}');
+      print('❌ [DATASOURCE] Request Data: ${e.requestOptions.data}');
 
       if (e.response?.statusCode == 400) {
         throw Exception(e.response?.data['message'] ??
@@ -205,7 +218,7 @@ class TransfersRemoteDatasource {
       }
       throw Exception('Error al confirmar llegada: ${e.message}');
     } catch (e) {
-      print('❌ Error inesperado: $e');
+      print('❌ [DATASOURCE] Error inesperado: $e');
       throw Exception('Error inesperado: $e');
     }
   }

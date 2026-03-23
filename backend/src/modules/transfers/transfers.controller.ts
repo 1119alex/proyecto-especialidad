@@ -35,8 +35,8 @@ export class TransfersController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
-  findAll() {
-    return this.transfersService.findAll();
+  findAll(@GetUser() user: User) {
+    return this.transfersService.findAll(user);
   }
 
   @Get(':id')
