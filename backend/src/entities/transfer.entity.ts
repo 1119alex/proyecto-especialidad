@@ -59,16 +59,16 @@ export class Transfer {
   qrVerifiedAtDestination?: Date;
 
   // Tiempos
-  @Column({ name: 'estimated_departure_time', type: 'datetime', nullable: true })
+  @Column({ name: 'estimated_departure_time', type: 'timestamp', nullable: true })
   estimatedDepartureTime?: Date;
 
-  @Column({ name: 'estimated_arrival_time', type: 'datetime', nullable: true })
+  @Column({ name: 'estimated_arrival_time', type: 'timestamp', nullable: true })
   estimatedArrivalTime?: Date;
 
-  @Column({ name: 'actual_departure_time', type: 'datetime', nullable: true })
+  @Column({ name: 'actual_departure_time', type: 'timestamp', nullable: true })
   actualDepartureTime?: Date;
 
-  @Column({ name: 'actual_arrival_time', type: 'datetime', nullable: true })
+  @Column({ name: 'actual_arrival_time', type: 'timestamp', nullable: true })
   actualArrivalTime?: Date;
 
   // Cancelación
