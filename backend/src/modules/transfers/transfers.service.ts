@@ -459,9 +459,20 @@ export class TransfersService {
       return { qrCode: transfer.qrCode, qrImage };
     }
 
+    // Validar que esté en preparación
+    if (transfer.status !== TransferStatus.EN_PREPARACION) {
+      throw new BadRequestException(
+        'Solo se puede generar QR para transferencias en preparación',
+      );
+    }
+
     // Generar nuevo código QR (formato: TRF-{id}-{timestamp})
     const qrData = `TRF-${transfer.id}-${Date.now()}`;
     transfer.qrCode = qrData;
+
+    // Cambiar estado a LISTA_DESPACHO al generar el QR
+    transfer.status = TransferStatus.LISTA_DESPACHO;
+
     await this.transferRepository.save(transfer);
 
     // Generar imagen QR en base64
