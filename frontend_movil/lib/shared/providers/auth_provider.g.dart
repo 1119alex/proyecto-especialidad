@@ -55,7 +55,7 @@ final userIdProvider = AutoDisposeProvider<int?>.internal(
 );
 
 typedef UserIdRef = AutoDisposeProviderRef<int?>;
-String _$authHash() => r'552d699dbdab96d6ecd06b7ef5138a06b4e216c7';
+String _$authHash() => r'f7290bb341d109ab1ae5f4057f1d49415c64cf8c';
 
 /// Provider de autenticación
 ///

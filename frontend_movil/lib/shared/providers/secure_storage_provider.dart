@@ -65,6 +65,30 @@ class SecureStorageManager extends _$SecureStorageManager {
     return await _storage.read(key: 'user_id');
   }
 
+  Future<void> saveUserName(String name) async {
+    await _storage.write(key: 'user_name', value: name);
+  }
+
+  Future<String?> getUserName() async {
+    return await _storage.read(key: 'user_name');
+  }
+
+  Future<void> saveWarehouseId(String warehouseId) async {
+    await _storage.write(key: 'warehouse_id', value: warehouseId);
+  }
+
+  Future<String?> getWarehouseId() async {
+    return await _storage.read(key: 'warehouse_id');
+  }
+
+  Future<void> saveWarehouseName(String warehouseName) async {
+    await _storage.write(key: 'warehouse_name', value: warehouseName);
+  }
+
+  Future<String?> getWarehouseName() async {
+    return await _storage.read(key: 'warehouse_name');
+  }
+
   // ==================== CLEAR ALL ====================
 
   Future<void> clearAll() async {

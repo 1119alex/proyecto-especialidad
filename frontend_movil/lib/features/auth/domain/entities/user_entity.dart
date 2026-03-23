@@ -7,6 +7,8 @@ class UserEntity {
   final String? phone;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int? warehouseId;
+  final String? warehouseName;
 
   const UserEntity({
     required this.id,
@@ -16,6 +18,8 @@ class UserEntity {
     this.phone,
     this.createdAt,
     this.updatedAt,
+    this.warehouseId,
+    this.warehouseName,
   });
 
   UserEntity copyWith({
@@ -26,6 +30,8 @@ class UserEntity {
     String? phone,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? warehouseId,
+    String? warehouseName,
   }) {
     return UserEntity(
       id: id ?? this.id,
@@ -35,6 +41,8 @@ class UserEntity {
       phone: phone ?? this.phone,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      warehouseId: warehouseId ?? this.warehouseId,
+      warehouseName: warehouseName ?? this.warehouseName,
     );
   }
 
@@ -49,7 +57,9 @@ class UserEntity {
         other.role == role &&
         other.phone == phone &&
         other.createdAt == createdAt &&
-        other.updatedAt == updatedAt;
+        other.updatedAt == updatedAt &&
+        other.warehouseId == warehouseId &&
+        other.warehouseName == warehouseName;
   }
 
   @override
@@ -60,6 +70,8 @@ class UserEntity {
         role.hashCode ^
         phone.hashCode ^
         createdAt.hashCode ^
-        updatedAt.hashCode;
+        updatedAt.hashCode ^
+        warehouseId.hashCode ^
+        warehouseName.hashCode;
   }
 }

@@ -26,12 +26,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     if (!mounted) return;
 
-    // Verificar si hay sesión activa
-    final authState = ref.read(authProvider);
+    // IMPORTANTE: Usar ref.read() para forzar la carga del provider
+    // y luego esperar con .future para obtener el valor cuando esté listo
+    final authState = await ref.read(authProvider.future);
 
-    if (authState.value?.isAuthenticated == true) {
+    if (!mounted) return;
+
+    if (authState.isAuthenticated) {
       // Hay sesión activa, redirigir según rol
-      final userRole = authState.value?.userRole;
+      final userRole = authState.userRole;
 
       if (userRole == AppConstants.roleEncargadoAlmacen) {
         context.go(AppRoutes.warehouseHome);

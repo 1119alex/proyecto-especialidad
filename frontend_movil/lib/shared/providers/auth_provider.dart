@@ -11,6 +11,9 @@ class AuthState {
   final String? token;
   final String? userRole;
   final int? userId;
+  final String? userName;
+  final int? warehouseId;
+  final String? warehouseName;
   final bool isLoading;
   final String? error;
 
@@ -19,6 +22,9 @@ class AuthState {
     this.token,
     this.userRole,
     this.userId,
+    this.userName,
+    this.warehouseId,
+    this.warehouseName,
     this.isLoading = false,
     this.error,
   });
@@ -28,6 +34,9 @@ class AuthState {
     String? token,
     String? userRole,
     int? userId,
+    String? userName,
+    int? warehouseId,
+    String? warehouseName,
     bool? isLoading,
     String? error,
   }) {
@@ -36,6 +45,9 @@ class AuthState {
       token: token ?? this.token,
       userRole: userRole ?? this.userRole,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      warehouseId: warehouseId ?? this.warehouseId,
+      warehouseName: warehouseName ?? this.warehouseName,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
     );
@@ -55,12 +67,19 @@ class Auth extends _$Auth {
       final role = await storageManager.getUserRole();
       final userIdStr = await storageManager.getUserId();
       final userId = userIdStr != null ? int.tryParse(userIdStr) : null;
+      final userName = await storageManager.getUserName();
+      final warehouseIdStr = await storageManager.getWarehouseId();
+      final warehouseId = warehouseIdStr != null ? int.tryParse(warehouseIdStr) : null;
+      final warehouseName = await storageManager.getWarehouseName();
 
       return AuthState(
         isAuthenticated: true,
         token: token,
         userRole: role,
         userId: userId,
+        userName: userName,
+        warehouseId: warehouseId,
+        warehouseName: warehouseName,
       );
     }
 
@@ -88,6 +107,15 @@ class Auth extends _$Auth {
       await storageManager.saveToken(loginResponse.accessToken);
       await storageManager.saveUserRole(loginResponse.user.role);
       await storageManager.saveUserId(loginResponse.user.id.toString());
+      await storageManager.saveUserName(loginResponse.user.name);
+
+      // Guardar warehouse info si existe
+      if (loginResponse.user.warehouseId != null) {
+        await storageManager.saveWarehouseId(loginResponse.user.warehouseId.toString());
+      }
+      if (loginResponse.user.warehouseName != null) {
+        await storageManager.saveWarehouseName(loginResponse.user.warehouseName!);
+      }
 
       // Actualizar estado exitosamente
       state = AsyncValue.data(AuthState(
@@ -95,6 +123,9 @@ class Auth extends _$Auth {
         token: loginResponse.accessToken,
         userRole: loginResponse.user.role,
         userId: loginResponse.user.id,
+        userName: loginResponse.user.name,
+        warehouseId: loginResponse.user.warehouseId,
+        warehouseName: loginResponse.user.warehouseName,
       ));
     } catch (error, stackTrace) {
       // Actualizar estado con error

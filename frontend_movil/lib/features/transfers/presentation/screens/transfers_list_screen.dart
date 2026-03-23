@@ -21,8 +21,8 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
   @override
   Widget build(BuildContext context) {
     final transfersAsync = ref.watch(transfersProvider);
-    final userRole = ref.watch(userRoleProvider);
-    final userName = 'Carlos Mendoza'; // TODO: Get from auth provider
+    final authState = ref.watch(authProvider);
+    final userName = authState.value?.userName ?? 'Usuario';
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E293B),
@@ -70,17 +70,49 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.logout,
+                          color: Colors.white,
+                          size: 24,
                         ),
-                        child: const Icon(
-                          Icons.local_shipping,
-                          color: Color(0xFF3B82F6),
-                          size: 28,
-                        ),
+                        onPressed: () async {
+                          // Mostrar diálogo de confirmación
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: const Color(0xFF2A3544),
+                              title: const Text(
+                                'Cerrar Sesión',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              content: const Text(
+                                '¿Estás seguro de que deseas cerrar sesión?',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEF4444),
+                                  ),
+                                  child: const Text('Cerrar Sesión'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmed == true && context.mounted) {
+                            await ref.read(authProvider.notifier).logout();
+                            if (context.mounted) {
+                              context.go(AppRoutes.login);
+                            }
+                          }
+                        },
                       ),
                     ],
                   ),

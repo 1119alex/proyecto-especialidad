@@ -22,6 +22,12 @@ class UserModel {
   @JsonKey(name: 'updatedAt')
   final DateTime? updatedAt;
 
+  // Campos adicionales para encargados de almacén
+  @JsonKey(name: 'warehouseId')
+  final int? warehouseId;
+  @JsonKey(name: 'warehouseName')
+  final String? warehouseName;
+
   UserModel({
     required this.id,
     required this.email,
@@ -31,6 +37,8 @@ class UserModel {
     this.phone,
     this.createdAt,
     this.updatedAt,
+    this.warehouseId,
+    this.warehouseName,
   });
 
   // Helper para obtener nombre completo
@@ -53,6 +61,8 @@ class UserModel {
       phone: phone,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      warehouseId: warehouseId,
+      warehouseName: warehouseName,
     );
   }
 
@@ -73,6 +83,8 @@ class UserModel {
       phone: entity.phone,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
+      warehouseId: entity.warehouseId,
+      warehouseName: entity.warehouseName,
     );
   }
 }

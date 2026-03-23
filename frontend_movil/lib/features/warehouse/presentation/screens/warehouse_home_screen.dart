@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../transfers/presentation/providers/transfers_provider.dart';
+import '../../../transfers/domain/entities/transfer_entity.dart';
 
 /// Pantalla principal del Encargado de Almacén
 class WarehouseHomeScreen extends ConsumerStatefulWidget {
@@ -210,9 +211,9 @@ class _DashboardTab extends ConsumerWidget {
       body: SafeArea(
         child: authState.when(
           data: (state) {
-            // TODO: Get warehouse name from user data
-            final userName = 'Juan Pérez'; // Mock
-            final warehouseName = 'Almacén Central Lima'; // Mock
+            // Obtener datos reales del usuario
+            final userName = state.userName ?? 'Usuario';
+            final warehouseName = state.warehouseName ?? 'Sin almacén asignado';
 
             return CustomScrollView(
               slivers: [
@@ -326,17 +327,24 @@ class _DashboardTab extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                     child: transfersAsync.when(
                       data: (transfers) {
-                        // TODO: Filter by warehouse
-                        final enPreparacion = transfers
+                        // Filtrar transferencias del almacén del usuario
+                        final warehouseId = state.warehouseId;
+                        final warehouseTransfers = warehouseId != null
+                            ? transfers.where((t) =>
+                                t.originWarehouseId == warehouseId ||
+                                t.destinationWarehouseId == warehouseId).toList()
+                            : <TransferEntity>[];
+
+                        final enPreparacion = warehouseTransfers
                             .where((t) => t.status == 'EN_PREPARACION')
                             .length;
-                        final listasDespacho = transfers
+                        final listasDespacho = warehouseTransfers
                             .where((t) => t.status == 'LISTA_DESPACHO')
                             .length;
-                        final enTransito = transfers
+                        final enTransito = warehouseTransfers
                             .where((t) => t.status == 'EN_TRANSITO')
                             .length;
-                        final llegandoDestino = transfers
+                        final llegandoDestino = warehouseTransfers
                             .where((t) => t.status == 'LLEGADA_DESTINO')
                             .length;
 
