@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { transferService } from '../../services/transferService';
 import { Transfer, TrackingLog, TransferStatus } from '../../types';
+import { TrackingMap } from './TrackingMap';
 
 interface TransferDetailProps {
   transfer: Transfer;
@@ -294,50 +295,46 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           )}
 
           {/* GPS Tracking Map */}
-          {trackingHistory.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">Seguimiento GPS</h4>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+              <svg
+                className="w-5 h-5 mr-2 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                />
+              </svg>
+              Seguimiento GPS en Tiempo Real
+            </h4>
 
-              {/* Simple tracking points list (you can replace this with a real map later) */}
-              <div className="bg-gray-50 rounded p-4 max-h-64 overflow-y-auto">
-                <p className="text-sm text-gray-600 mb-3">
-                  Total de puntos registrados: {trackingHistory.length}
-                </p>
-                <div className="space-y-2">
-                  {trackingHistory.slice().reverse().slice(0, 10).map((point, idx) => (
-                    <div key={point.id} className="bg-white p-2 rounded border border-gray-200 text-sm">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="font-medium">
-                            Lat: {point.latitude.toFixed(6)}, Lng: {point.longitude.toFixed(6)}
-                          </span>
-                          {point.speed && (
-                            <span className="ml-3 text-gray-600">
-                              Velocidad: {point.speed} km/h
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-gray-500">
-                          {new Date(point.recordedAt).toLocaleString('es-BO')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {trackingHistory.length > 10 && (
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    Mostrando los últimos 10 puntos de {trackingHistory.length}
-                  </p>
-                )}
-              </div>
+            <TrackingMap trackingData={trackingHistory} />
 
-              <div className="mt-3 bg-blue-50 border border-blue-200 rounded p-3">
-                <p className="text-sm text-blue-800">
-                  💡 <strong>Próximamente:</strong> Visualización del recorrido en mapa interactivo con Leaflet/Google Maps
+            {/* Mostrar mensaje de actualización automática si está en tránsito */}
+            {transfer.status === 'EN_TRANSITO' && trackingHistory.length > 0 && (
+              <div className="mt-4 bg-green-50 border border-green-200 rounded p-3">
+                <p className="text-sm text-green-800 flex items-center">
+                  <svg
+                    className="w-4 h-4 mr-2 animate-pulse"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <strong>Actualización automática:</strong> El mapa se actualiza cada 30 segundos mientras la transferencia está en tránsito
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Products List */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
