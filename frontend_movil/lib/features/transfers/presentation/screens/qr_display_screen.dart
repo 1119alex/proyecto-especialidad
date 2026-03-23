@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../providers/qr_provider.dart';
+import '../providers/transfers_provider.dart';
 
 class QRDisplayScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -35,7 +36,12 @@ class _QRDisplayScreenState extends ConsumerState<QRDisplayScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            // Invalidar cache para recargar la transferencia con el nuevo estado
+            ref.invalidate(transferDetailProvider(widget.transferId));
+            ref.invalidate(transfersProvider);
+            Navigator.of(context).pop();
+          },
         ),
         title: const Text(
           'Código QR de Transferencia',

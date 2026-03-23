@@ -28,7 +28,7 @@ class QRVerifier extends _$QRVerifier {
   }
 
   /// Verificar QR escaneado
-  Future<void> verifyQR({
+  Future<QRVerifyResponseModel> verifyQR({
     required int transferId,
     required String qrCode,
     required String location,
@@ -44,9 +44,10 @@ class QRVerifier extends _$QRVerifier {
       );
 
       state = AsyncValue.data(result);
+      return result;
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
-      rethrow;
+      throw Exception('Error al verificar QR: $error');
     }
   }
 

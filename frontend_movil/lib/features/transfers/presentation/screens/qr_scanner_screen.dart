@@ -23,6 +23,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   MobileScannerController cameraController = MobileScannerController();
   bool isScanning = true;
   bool isVerifying = false;
+  String? lastScannedCode;
 
   @override
   void dispose() {
@@ -31,7 +32,12 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   }
 
   Future<void> _onQRScanned(String qrCode) async {
-    if (!isScanning || isVerifying) return;
+    if (!isScanning || isVerifying || lastScannedCode == qrCode) return;
+
+    lastScannedCode = qrCode;
+
+    // Detener el escáner inmediatamente
+    await cameraController.stop();
 
     setState(() {
       isScanning = false;
@@ -48,67 +54,62 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
             location: widget.location,
           );
 
-      // Obtener el resultado
-      final verificationState = ref.read(qRVerifierProvider);
-
       if (!mounted) return;
 
-      verificationState.when(
-        data: (result) {
-          if (result != null && result.success) {
-            // Invalidar el provider de transfers para refrescar la lista
-            ref.invalidate(transfersProvider);
+      // Invalidar el provider de transfers para refrescar la lista
+      ref.invalidate(transfersProvider);
+      ref.invalidate(transferDetailProvider(widget.transferId));
 
-            // Mostrar mensaje de éxito
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        result.message,
-                        style: const TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ],
+      // Mostrar mensaje de éxito
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'QR verificado exitosamente. Iniciando tránsito...',
+                  style: TextStyle(fontSize: 15),
                 ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
               ),
-            );
-
-            // Regresar a la pantalla anterior después de un delay
-            Future.delayed(const Duration(milliseconds: 1500), () {
-              if (mounted) {
-                context.pop();
-              }
-            });
-          } else {
-            // Error en la verificación
-            _showError(result?.message ?? 'Error desconocido');
-          }
-        },
-        loading: () {},
-        error: (error, _) {
-          _showError(error.toString());
-        },
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
       );
+
+      // Regresar a la pantalla anterior después de un delay
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          context.pop();
+        }
+      });
     } catch (e) {
       if (mounted) {
-        _showError(e.toString());
+        _showError('Error al verificar QR: ${e.toString()}');
       }
     }
   }
 
-  void _showError(String message) {
+  void _showError(String message) async {
     if (!mounted) return;
 
     setState(() {
       isScanning = true;
       isVerifying = false;
+      lastScannedCode = null; // Resetear para permitir otro escaneo
     });
+
+    // Reiniciar el escáner
+    try {
+      await cameraController.start();
+    } catch (e) {
+      // Error al reiniciar escáner
+    }
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

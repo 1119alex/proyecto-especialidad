@@ -499,21 +499,21 @@ export class TransfersService {
 
     if (location === 'origin') {
       // Verificación en origen
-      if (transfer.status !== TransferStatus.EN_PREPARACION) {
+      if (transfer.status !== TransferStatus.LISTA_DESPACHO) {
         return {
           success: false,
-          message: 'La transferencia debe estar en preparación',
+          message: 'La transferencia debe estar lista para despacho',
         };
       }
 
       transfer.qrVerifiedAtOrigin = new Date();
-      transfer.status = TransferStatus.LISTA_DESPACHO;
+      transfer.status = TransferStatus.EN_TRANSITO;
 
       await this.transferRepository.save(transfer);
 
       return {
         success: true,
-        message: 'Verificación exitosa en origen. La transferencia está lista para despacho.',
+        message: 'Verificación exitosa en origen. La transferencia está en tránsito.',
         transfer,
       };
     } else {
