@@ -48,7 +48,7 @@ export class User {
   lastLogin: Date;
 
   // Token FCM del dispositivo para notificaciones push
-  @Column({ name: 'fcm_token', length: 255, nullable: true })
+  @Column({ name: 'fcm_token', type: 'varchar', length: 255, nullable: true })
   @Exclude()
   fcmToken: string | null;
 

@@ -1,17 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
 @theme {
-  --color-primary: #1E3A8A;
-  --color-secondary: #10B981;
-  --color-dark: #1F2937;
+  /* Marca */
+  --color-primary: #1d4ed8;
+  --color-primary-strong: #1e3a8a;
+  --color-primary-soft: #eff6ff;
+  --color-secondary: #10b981;
+  --color-dark: #0f172a;
+
+  /* Superficies */
+  --color-app: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-edge: #e2e8f0;
+
+  /* Texto */
+  --color-ink: #0f172a;
+  --color-ink-soft: #475569;
+  --color-ink-muted: #94a3b8;
+
+  /* Semánticos */
+  --color-success: #16a34a;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-info: #7c3aed;
+  --color-info-soft: #f5f3ff;
+
+  /* Tipografía */
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background-color: var(--color-app);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -19,4 +47,10 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Scrollbar sutil para paneles internos */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-edge) transparent;
 }

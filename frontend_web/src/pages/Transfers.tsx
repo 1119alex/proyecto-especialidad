@@ -1,9 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { transferService } from '../services/transferService';
 import { Transfer, TransferStatus } from '../types';
 import MainLayout from '../components/layout/MainLayout';
 import TransferForm from '../components/transfers/TransferForm';
 import TransferDetail from '../components/transfers/TransferDetail';
+import { StatusBadge, getStatusLabel } from '../components/ui/StatusBadge';
+import { StatCard } from '../components/ui/StatCard';
+
+const STATUS_OPTIONS: TransferStatus[] = [
+  'PENDIENTE',
+  'ASIGNADA',
+  'EN_PREPARACION',
+  'LISTA_DESPACHO',
+  'EN_TRANSITO',
+  'LLEGADA_DESTINO',
+  'COMPLETADA',
+  'COMPLETADA_CON_DISCREPANCIA',
+  'CANCELADA',
+];
 
 const Transfers: React.FC = () => {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -13,6 +27,7 @@ const Transfers: React.FC = () => {
   const [editingTransfer, setEditingTransfer] = useState<Transfer | null>(null);
   const [viewingTransfer, setViewingTransfer] = useState<Transfer | null>(null);
   const [filterStatus, setFilterStatus] = useState<TransferStatus | 'ALL'>('ALL');
+  const [search, setSearch] = useState<string>('');
 
   const loadTransfers = async () => {
     try {
@@ -23,7 +38,6 @@ const Transfers: React.FC = () => {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al cargar las transferencias');
       setTransfers([]);
-      console.error('Error loading transfers:', err);
     } finally {
       setLoading(false);
     }
@@ -43,17 +57,7 @@ const Transfers: React.FC = () => {
       await loadTransfers();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Error al eliminar la transferencia');
-      console.error(err);
     }
-  };
-
-  const handleEdit = (transfer: Transfer) => {
-    setEditingTransfer(transfer);
-    setShowForm(true);
-  };
-
-  const handleView = (transfer: Transfer) => {
-    setViewingTransfer(transfer);
   };
 
   const handleFormClose = () => {
@@ -67,241 +71,303 @@ const Transfers: React.FC = () => {
     loadTransfers();
   };
 
-  const getStatusBadgeClass = (status: TransferStatus): string => {
-    const statusClasses: Record<TransferStatus, string> = {
-      PENDIENTE: 'bg-gray-100 text-gray-800',
-      ASIGNADA: 'bg-blue-100 text-blue-800',
-      EN_PREPARACION: 'bg-yellow-100 text-yellow-800',
-      LISTA_DESPACHO: 'bg-orange-100 text-orange-800',
-      EN_TRANSITO: 'bg-purple-100 text-purple-800',
-      LLEGADA_DESTINO: 'bg-indigo-100 text-indigo-800',
-      COMPLETADA: 'bg-green-100 text-green-800',
-      COMPLETADA_CON_DISCREPANCIA: 'bg-amber-100 text-amber-800',
-      CANCELADA: 'bg-red-100 text-red-800',
-    };
-    return statusClasses[status] || 'bg-gray-100 text-gray-800';
-  };
+  const filteredTransfers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return transfers.filter((t) => {
+      if (filterStatus !== 'ALL' && t.status !== filterStatus) return false;
+      if (!term) return true;
+      const haystack = [
+        t.transferCode,
+        t.originWarehouse?.name,
+        t.destinationWarehouse?.name,
+        t.vehicle?.licensePlate,
+        t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [transfers, filterStatus, search]);
 
-  const getStatusLabel = (status: TransferStatus): string => {
-    const labels: Record<TransferStatus, string> = {
-      PENDIENTE: 'Pendiente',
-      ASIGNADA: 'Asignada',
-      EN_PREPARACION: 'En Preparación',
-      LISTA_DESPACHO: 'Lista para Despacho',
-      EN_TRANSITO: 'En Tránsito',
-      LLEGADA_DESTINO: 'Llegada a Destino',
-      COMPLETADA: 'Completada',
-      COMPLETADA_CON_DISCREPANCIA: 'Completada con Discrepancia',
-      CANCELADA: 'Cancelada',
-    };
-    return labels[status] || status;
-  };
-
-  const filteredTransfers = filterStatus === 'ALL'
-    ? transfers
-    : transfers.filter(t => t.status === filterStatus);
+  const inTransit = transfers.filter((t) => t.status === 'EN_TRANSITO').length;
+  const completedCount = transfers.filter(
+    (t) =>
+      t.status === 'COMPLETADA' || t.status === 'COMPLETADA_CON_DISCREPANCIA'
+  ).length;
+  const pendingCount = transfers.filter(
+    (t) => t.status === 'PENDIENTE' || t.status === 'ASIGNADA'
+  ).length;
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Transferencias</h1>
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition"
-          >
-            + Nueva Transferencia
-          </button>
-        </div>
+        {/* Métricas rápidas */}
+        <section aria-label="Resumen de transferencias">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard
+              label="Total"
+              value={transfers.length}
+              loading={loading}
+              accent="primary"
+              icon={
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8zM12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="En tránsito"
+              value={inTransit}
+              loading={loading}
+              accent="info"
+              icon={
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="Completadas"
+              value={completedCount}
+              loading={loading}
+              accent="success"
+              icon={
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              }
+            />
+            <StatCard
+              label="Por despachar"
+              value={pendingCount}
+              loading={loading}
+              accent="neutral"
+              icon={
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+              }
+            />
+          </div>
+        </section>
 
-        {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div
+            role="alert"
+            className="bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm"
+          >
             {error}
           </div>
         )}
 
-        {/* Filter */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Filtrar por Estado
-          </label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as TransferStatus | 'ALL')}
-            className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="ALL">Todos los Estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="ASIGNADA">Asignada</option>
-            <option value="EN_PREPARACION">En Preparación</option>
-            <option value="LISTA_DESPACHO">Lista para Despacho</option>
-            <option value="EN_TRANSITO">En Tránsito</option>
-            <option value="LLEGADA_DESTINO">Llegada a Destino</option>
-            <option value="COMPLETADA">Completada</option>
-            <option value="COMPLETADA_CON_DISCREPANCIA">Completada con Discrepancia</option>
-            <option value="CANCELADA">Cancelada</option>
-          </select>
+        {/* Barra de herramientas */}
+        <div className="bg-surface border border-edge rounded-lg shadow-sm p-4">
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="flex-1">
+              <label
+                htmlFor="transfer-search"
+                className="block text-sm font-medium text-ink-soft mb-1.5"
+              >
+                Buscar
+              </label>
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                </svg>
+                <input
+                  id="transfer-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Código, almacén, placa o conductor…"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-edge rounded-md bg-surface text-ink placeholder:text-ink-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent transition-shadow"
+                />
+              </div>
+            </div>
+
+            <div className="w-full md:w-60">
+              <label
+                htmlFor="transfer-status-filter"
+                className="block text-sm font-medium text-ink-soft mb-1.5"
+              >
+                Estado
+              </label>
+              <select
+                id="transfer-status-filter"
+                value={filterStatus}
+                onChange={(e) =>
+                  setFilterStatus(e.target.value as TransferStatus | 'ALL')
+                }
+                className="w-full px-3 py-2 text-sm border border-edge rounded-md bg-surface text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-shadow"
+              >
+                <option value="ALL">Todos los estados</option>
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {getStatusLabel(status)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-strong text-white text-sm font-medium rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Nueva Transferencia
+            </button>
+          </div>
         </div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        {/* Tabla */}
+        <div className="bg-surface border border-edge rounded-lg shadow-sm overflow-hidden">
+          <div className="px-6 py-3 border-b border-edge flex items-center justify-between">
+            <p className="text-sm text-ink-soft">
+              {loading
+                ? 'Cargando…'
+                : `${filteredTransfers.length} de ${transfers.length} transferencias`}
+            </p>
           </div>
-        ) : (
-          <>
-            {/* Transfers Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Código
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Origen
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Destino
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Vehículo
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Conductor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha Creación
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredTransfers.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                          No hay transferencias para mostrar
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredTransfers.map((transfer) => (
-                        <tr key={transfer.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm font-medium text-gray-900">
-                              {transfer.transferCode}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {transfer.originWarehouse?.name || 'N/A'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {transfer.originWarehouse?.city}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {transfer.destinationWarehouse?.name || 'N/A'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {transfer.destinationWarehouse?.city}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {transfer.vehicle?.licensePlate || 'Sin asignar'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {transfer.driver
-                                ? `${transfer.driver.firstName} ${transfer.driver.lastName}`
-                                : 'Sin asignar'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(transfer.status)}`}>
-                              {getStatusLabel(transfer.status)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(transfer.createdAt).toLocaleDateString('es-BO')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                            <button
-                              onClick={() => handleView(transfer)}
-                              className="text-primary hover:text-blue-900"
-                            >
-                              Ver
-                            </button>
-                            {transfer.status === 'PENDIENTE' && (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(transfer)}
-                                  className="text-yellow-600 hover:text-yellow-900"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(transfer.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Eliminar
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm font-medium text-gray-500">Total</div>
-                <div className="mt-1 text-2xl font-semibold text-gray-900">
-                  {transfers.length}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm font-medium text-gray-500">En Tránsito</div>
-                <div className="mt-1 text-2xl font-semibold text-purple-600">
-                  {transfers.filter(t => t.status === 'EN_TRANSITO').length}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm font-medium text-gray-500">Completadas</div>
-                <div className="mt-1 text-2xl font-semibold text-green-600">
-                  {transfers.filter(t => t.status === 'COMPLETADA').length}
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <div className="text-sm font-medium text-gray-500">Pendientes</div>
-                <div className="mt-1 text-2xl font-semibold text-gray-600">
-                  {transfers.filter(t => t.status === 'PENDIENTE' || t.status === 'ASIGNADA').length}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-edge">
+              <thead className="bg-app">
+                <tr>
+                  {[
+                    'Código',
+                    'Origen',
+                    'Destino',
+                    'Vehículo',
+                    'Conductor',
+                    'Estado',
+                    'Creación',
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider"
+                  >
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-edge">
+                {loading ? (
+                  [0, 1, 2, 3, 4].map((i) => (
+                    <tr key={i}>
+                      <td colSpan={8} className="px-6 py-4">
+                        <div className="h-5 rounded bg-app motion-safe:animate-pulse" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredTransfers.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-14 text-center">
+                      <p className="text-sm font-medium text-ink-soft">
+                        No hay transferencias para mostrar
+                      </p>
+                      <p className="text-xs text-ink-muted mt-1">
+                        {search || filterStatus !== 'ALL'
+                          ? 'Prueba ajustando la búsqueda o el filtro de estado'
+                          : 'Crea la primera con el botón "Nueva Transferencia"'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTransfers.map((transfer) => (
+                    <tr key={transfer.id} className="hover:bg-app transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-bold text-ink">
+                          {transfer.transferCode}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-ink">
+                          {transfer.originWarehouse?.name || '—'}
+                        </div>
+                        <div className="text-xs text-ink-muted">
+                          {transfer.originWarehouse?.city}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-ink">
+                          {transfer.destinationWarehouse?.name || '—'}
+                        </div>
+                        <div className="text-xs text-ink-muted">
+                          {transfer.destinationWarehouse?.city}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
+                        {transfer.vehicle?.licensePlate || (
+                          <span className="text-ink-muted">Sin asignar</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
+                        {transfer.driver ? (
+                          `${transfer.driver.firstName} ${transfer.driver.lastName}`
+                        ) : (
+                          <span className="text-ink-muted">Sin asignar</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status={transfer.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-muted tabular-nums">
+                        {new Date(transfer.createdAt).toLocaleDateString('es-BO')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                        <button
+                          onClick={() => setViewingTransfer(transfer)}
+                          className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                        >
+                          Ver
+                        </button>
+                        {transfer.status === 'PENDIENTE' && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setEditingTransfer(transfer);
+                                setShowForm(true);
+                              }}
+                              className="text-warning hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning rounded"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transfer.id)}
+                              className="text-danger hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger rounded"
+                            >
+                              Eliminar
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Forms and Modals */}
       {showForm && (
-        <TransferForm
-          transfer={editingTransfer}
-          onClose={handleFormClose}
-        />
+        <TransferForm transfer={editingTransfer} onClose={handleFormClose} />
       )}
 
       {viewingTransfer && (
