@@ -83,33 +83,31 @@ class TransferDetail extends _$TransferDetail {
 
   /// Confirmar llegada al destino
   Future<void> arriveDestination() async {
-    print('📍 [PROVIDER] arriveDestination iniciado - Transfer ID: $transferId');
-
     state = const AsyncValue.loading();
-    print('📍 [PROVIDER] State cambiado a loading');
-
     state = await AsyncValue.guard(() async {
-      print('📍 [PROVIDER] Dentro de AsyncValue.guard');
-
       final datasource = ref.read(transfersRemoteDatasourceProvider);
-      print('📍 [PROVIDER] Datasource obtenido');
-
-      print('📍 [PROVIDER] Llamando a datasource.arriveDestination($transferId)');
       final model = await datasource.arriveDestination(transferId);
-
-      print('📍 [PROVIDER] Response recibido: ${model.transferCode} - Estado: ${model.status}');
-
       // Invalidar el provider de transfers para refrescar la lista
       ref.invalidate(transfersProvider);
-      print('📍 [PROVIDER] Providers invalidados');
-
-      final entity = model.toEntity();
-      print('📍 [PROVIDER] Entity convertida - Estado final: ${entity.status}');
-
-      return entity;
+      return model.toEntity();
     });
+  }
 
-    print('📍 [PROVIDER] arriveDestination completado - State: ${state.hasValue ? "success" : state.hasError ? "error: ${state.error}" : "loading"}');
+  /// Confirmar la recepción en destino con las cantidades recibidas
+  Future<void> completeReception(
+    List<Map<String, dynamic>> receivedQuantities,
+  ) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final datasource = ref.read(transfersRemoteDatasourceProvider);
+      final model = await datasource.completeTransfer(
+        transferId,
+        receivedQuantities,
+      );
+      // Invalidar el provider de transfers para refrescar la lista
+      ref.invalidate(transfersProvider);
+      return model.toEntity();
+    });
   }
 }
 

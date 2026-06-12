@@ -53,27 +53,35 @@ Cliente Móvil (Flutter) ─┘          │
 
 Cada módulo sigue el patrón de capas de NestJS: **Controller** (recibe la petición) → **Service** (aplica la lógica de negocio) → **Repository / TypeORM** (lee o escribe en MySQL).
 
-## Endpoints core (priorizados)
+## Endpoints core (prefijo `api/v1`)
 
 ### Autenticación
-1. `POST /auth/login` — inicia sesión y devuelve un JWT
+- `POST /auth/login` — inicia sesión y devuelve un JWT
 
 ### Transferencias
-2. `POST /transfers` — crea una nueva transferencia
-3. `GET /transfers` — lista todas las transferencias (con filtros opcionales)
-4. `PATCH /transfers/:id/status` — actualiza el estado de una transferencia
-5. `DELETE /transfers/:id` — cancela una transferencia
-
-### Seguimiento GPS
-6. `POST /tracking/:id/location` — registra coordenada GPS del transportista
-7. `GET /tracking/:id/location` — consulta la última ubicación registrada
+- `POST /transfers` — crea una nueva transferencia (valida stock de origen)
+- `GET /transfers` — lista transferencias (filtradas según el rol)
+- `PATCH /transfers/:id` — actualiza una transferencia
+- `PATCH /transfers/:id/assign` — asigna vehículo y conductor
+- `PATCH /transfers/:id/start-preparation` — inicia preparación (encargado origen)
+- `PATCH /transfers/:id/start-transit` — inicia tránsito (requiere QR verificado)
+- `PATCH /transfers/:id/arrive-destination` — marca llegada (transportista asignado)
+- `PATCH /transfers/:id/complete` — confirma recepción con cantidades recibidas; registra discrepancias y actualiza inventario de origen y destino
+- `PATCH /transfers/:id/cancel` — cancela con razón
+- `DELETE /transfers/:id` — elimina (solo pendientes/canceladas)
 
 ### Verificación QR
-8. `GET /qr/:transferId` — genera y devuelve el QR de la transferencia
-9. `POST /qr/verify` — valida el QR escaneado en origen o destino
+- `GET /transfers/:id/qr` — genera/devuelve el QR firmado (HMAC) de la transferencia
+- `POST /transfers/:id/verify-qr` — valida el QR escaneado en origen o destino (en destino NO completa: la recepción se confirma con `/complete`)
 
-### Reportes
-10. `GET /reports/transfers` — historial de transferencias con estadísticas
+### Seguimiento GPS
+- `POST /transfers/:id/tracking` — registra coordenada GPS (solo transportista asignado, en tránsito)
+- `GET /transfers/:id/tracking` — historial de tracking
+- `GET /transfers/:id/tracking/latest` — última ubicación
+
+### Inventario
+- `GET /warehouses/:id/inventory` — stock por almacén
+- `PATCH /warehouses/:id/inventory` — ajuste manual de stock (admin, deja movimiento AJUSTE)
 
 ## Cómo ejecutar el proyecto (local)
 
@@ -110,14 +118,21 @@ npm run start:dev
 ```env
 PORT=3000
 
+# PostgreSQL (en Railway se usa DATABASE_URL automáticamente)
 DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=inventory_transfer
-DB_USER=root
+DB_PORT=5432
+DB_DATABASE=inventory_transfer
+DB_USERNAME=postgres
 DB_PASSWORD=secret
 
 JWT_SECRET=cambiar_por_clave_segura
 JWT_EXPIRES_IN=8h
+
+# Firma HMAC de los códigos QR (si no se define se usa JWT_SECRET)
+QR_SECRET=cambiar_por_otra_clave
+
+# Orígenes permitidos en producción (separados por coma)
+CORS_ORIGIN=https://tu-frontend.vercel.app
 
 FIREBASE_PROJECT_ID=tu_proyecto_firebase
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."

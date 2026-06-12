@@ -2,25 +2,32 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,Logger
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
 import { Product } from '../../entities/product.entity';
+import { Inventory } from '../../entities/inventory.entity';
+import { InventoryMovement } from '../../entities/inventory-movement.entity';
 import { User } from '../../entities/user.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
+import { ReceivedQuantityDto } from './dto/complete-transfer.dto';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { MovementType } from '../../common/enums/inventory-movement.enum';
 import * as QRCode from 'qrcode';
 
 @Injectable()
 export class TransfersService {
-    private readonly logger = new Logger(TransfersService.name);
-  
+  private readonly logger = new Logger(TransfersService.name);
+
   constructor(
     @InjectRepository(Transfer)
     private readonly transferRepository: Repository<Transfer>,
@@ -30,13 +37,16 @@ export class TransfersService {
     private readonly trackingLogRepository: Repository<TrackingLog>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Inventory)
+    private readonly inventoryRepository: Repository<Inventory>,
+    private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
     createTransferDto: CreateTransferDto,
     createdByUserId: number,
   ): Promise<Transfer> {
-    // Validar que origen y destino sean diferentes
     if (
       createTransferDto.originWarehouseId ===
       createTransferDto.destinationWarehouseId
@@ -46,10 +56,14 @@ export class TransfersService {
       );
     }
 
-    // Generar código único de transferencia
+    if (!createTransferDto.details || createTransferDto.details.length === 0) {
+      throw new BadRequestException(
+        'La transferencia debe incluir al menos un producto',
+      );
+    }
+
     const transferCode = await this.generateTransferCode();
 
-    // Crear la transferencia
     const transfer = new Transfer();
     transfer.transferCode = transferCode;
     transfer.originWarehouseId = createTransferDto.originWarehouseId;
@@ -63,110 +77,111 @@ export class TransfersService {
       ? new Date(createTransferDto.estimatedArrivalTime)
       : undefined;
 
-    // Determinar el estado inicial según si tiene vehículo y conductor asignados
-    if (createTransferDto.vehicleId && createTransferDto.driverId) {
-      transfer.status = TransferStatus.ASIGNADA;
-    } else {
-      transfer.status = TransferStatus.PENDIENTE;
-    }
+    transfer.status =
+      createTransferDto.vehicleId && createTransferDto.driverId
+        ? TransferStatus.ASIGNADA
+        : TransferStatus.PENDIENTE;
 
     transfer.createdByUserId = createdByUserId;
 
-    const savedTransfer = await this.transferRepository.save(transfer);
+    // Validar productos y stock disponible en origen antes de guardar
+    const details: TransferDetail[] = [];
+    for (const detail of createTransferDto.details) {
+      const product = await this.productRepository.findOne({
+        where: { id: detail.productId },
+      });
 
-    // Crear los detalles de la transferencia
-    const details = await Promise.all(
-      createTransferDto.details.map(async (detail) => {
-        // Obtener datos del producto
-        const product = await this.productRepository.findOne({
-          where: { id: detail.productId },
-        });
+      if (!product) {
+        throw new NotFoundException(
+          `Producto con ID ${detail.productId} no encontrado`,
+        );
+      }
 
-        if (!product) {
-          throw new NotFoundException(
-            `Producto con ID ${detail.productId} no encontrado`,
-          );
+      // Si el almacén de origen tiene inventario registrado para el producto,
+      // exigir stock suficiente. Sin registro se permite (stock no inicializado).
+      const originInventory = await this.inventoryRepository.findOne({
+        where: {
+          warehouseId: createTransferDto.originWarehouseId,
+          productId: detail.productId,
+        },
+      });
+
+      if (
+        originInventory &&
+        Number(originInventory.quantity) < detail.quantity
+      ) {
+        throw new BadRequestException(
+          `Stock insuficiente de "${product.name}" en el almacén de origen ` +
+            `(disponible: ${Number(originInventory.quantity)}, solicitado: ${detail.quantity})`,
+        );
+      }
+
+      const transferDetail = new TransferDetail();
+      transferDetail.productId = detail.productId;
+      transferDetail.productSku = product.sku;
+      transferDetail.productName = product.name;
+      transferDetail.unit = product.unit;
+      transferDetail.quantityExpected = detail.quantity;
+      details.push(transferDetail);
+    }
+
+    // Guardar transferencia y detalles de forma atómica
+    const savedTransfer = await this.dataSource.transaction(
+      async (manager) => {
+        const saved = await manager.save(Transfer, transfer);
+        for (const detail of details) {
+          detail.transferId = saved.id;
         }
-
-        const transferDetail = new TransferDetail();
-        transferDetail.transferId = savedTransfer.id;
-        transferDetail.productId = detail.productId;
-        transferDetail.productSku = product.sku;
-        transferDetail.productName = product.name;
-        transferDetail.unit = product.unit;
-        transferDetail.quantityExpected = detail.quantity;
-        return transferDetail;
-      }),
+        await manager.save(TransferDetail, details);
+        return saved;
+      },
     );
-
-    await this.transferDetailRepository.save(details);
 
     return this.findOne(savedTransfer.id);
   }
 
   async findAll(user?: User): Promise<Transfer[]> {
-    const warehouseId = user?.warehouseStaffProfile?.warehouseId;
+    const relations = [
+      'originWarehouse',
+      'destinationWarehouse',
+      'vehicle',
+      'driver',
+      'createdBy',
+      'details',
+      'details.product',
+    ];
 
-    this.logger.log(`\n📋 ============================================`);
-    this.logger.log(`📋 FIND ALL TRANSFERS`);
-    this.logger.log(`User ID: ${user?.id}`);
-    this.logger.log(`User Role: ${user?.role}`);
-    this.logger.log(`User Warehouse ID: ${warehouseId || 'N/A'}`);
-
-    // Si es ADMIN, retornar todas las transferencias
     if (!user || user.role === UserRole.ADMIN) {
-      this.logger.log(`✅ Admin user - returning all transfers`);
-      this.logger.log(`============================================\n`);
       return this.transferRepository.find({
-        relations: [
-          'originWarehouse',
-          'destinationWarehouse',
-          'vehicle',
-          'driver',
-          'createdBy',
-          'details',
-          'details.product',
-        ],
+        relations,
         order: { createdAt: 'DESC' },
       });
     }
 
-    // Si es TRANSPORTISTA, solo ver transferencias asignadas a él
     if (user.role === UserRole.TRANSPORTISTA) {
-      this.logger.log(`🚚 Transportista - filtering by driverId: ${user.id}`);
-      this.logger.log(`============================================\n`);
       return this.transferRepository.find({
         where: { driverId: user.id },
-        relations: [
-          'originWarehouse',
-          'destinationWarehouse',
-          'vehicle',
-          'driver',
-          'createdBy',
-          'details',
-          'details.product',
-        ],
+        relations,
         order: { createdAt: 'DESC' },
       });
     }
 
-    // Si es ENCARGADO_ALMACEN, ver transferencias de su almacén
     if (user.role === UserRole.ENCARGADO_ALMACEN) {
+      const warehouseId = user.warehouseStaffProfile?.warehouseId;
       if (!warehouseId) {
-        this.logger.log(`⚠️ Warehouse manager without warehouseId - returning empty`);
-        this.logger.log(`============================================\n`);
+        this.logger.warn(
+          `Encargado de almacén sin almacén asignado (userId=${user.id})`,
+        );
         return [];
       }
 
-      this.logger.log(`📦 Warehouse manager - filtering by warehouseId: ${warehouseId}`);
-      this.logger.log(`   Looking for transfers where origin OR destination = ${warehouseId}`);
-      this.logger.log(`============================================\n`);
-
-      // Usar QueryBuilder para filtrar por origen O destino
       return this.transferRepository
         .createQueryBuilder('transfer')
         .leftJoinAndSelect('transfer.originWarehouse', 'originWarehouse')
-        .leftJoinAndSelect('transfer.destinationWarehouse', 'destinationWarehouse')
+        .leftJoinAndSelect(
+          'transfer.destinationWarehouse',
+          'destinationWarehouse',
+        )
         .leftJoinAndSelect('transfer.vehicle', 'vehicle')
         .leftJoinAndSelect('transfer.driver', 'driver')
         .leftJoinAndSelect('transfer.createdBy', 'createdBy')
@@ -180,9 +195,6 @@ export class TransfersService {
         .getMany();
     }
 
-    // Por defecto, no retornar nada
-    this.logger.log(`⚠️ Unknown role - returning empty`);
-    this.logger.log(`============================================\n`);
     return [];
   }
 
@@ -228,12 +240,10 @@ export class TransfersService {
   ): Promise<Transfer> {
     const transfer = await this.findOne(id);
 
-    // Validar transiciones de estado
     if (updateTransferDto.status) {
       this.validateStatusTransition(transfer.status, updateTransferDto.status);
     }
 
-    // Si se cancela, validar que tenga razón
     if (
       updateTransferDto.status === TransferStatus.CANCELADA &&
       !updateTransferDto.cancellationReason
@@ -243,66 +253,38 @@ export class TransfersService {
       );
     }
 
-    // Excluir 'details' del DTO ya que no se pueden actualizar directamente
+    // Los detalles no se actualizan por esta vía
     const { details, ...updateData } = updateTransferDto;
 
-    console.log('📝 Update data received:', updateData);
-    console.log('📦 Transfer before update:', {
-      id: transfer.id,
-      status: transfer.status,
-      vehicleId: transfer.vehicleId,
-      driverId: transfer.driverId
-    });
-
-    // Filtrar campos undefined para evitar sobrescribir valores existentes
     const cleanUpdateData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      Object.entries(updateData).filter(([, value]) => value !== undefined),
     );
 
-    console.log('🧹 Cleaned update data:', cleanUpdateData);
-
     Object.assign(transfer, cleanUpdateData);
-
-    console.log('📦 Transfer after Object.assign:', {
-      id: transfer.id,
-      status: transfer.status,
-      vehicleId: transfer.vehicleId,
-      driverId: transfer.driverId
-    });
 
     if (updateTransferDto.status === TransferStatus.CANCELADA) {
       transfer.cancelledAt = new Date();
     }
 
-    // Convertir fechas si están presentes
     if (updateData.estimatedDepartureTime) {
-      transfer.estimatedDepartureTime = new Date(updateData.estimatedDepartureTime);
+      transfer.estimatedDepartureTime = new Date(
+        updateData.estimatedDepartureTime,
+      );
     }
     if (updateData.estimatedArrivalTime) {
       transfer.estimatedArrivalTime = new Date(updateData.estimatedArrivalTime);
     }
 
-    // Si se está asignando vehículo y conductor a una transferencia PENDIENTE,
-    // cambiar automáticamente el estado a ASIGNADA
-    console.log('🔍 Checking auto-status change:', {
-      currentStatus: transfer.status,
-      vehicleId: transfer.vehicleId,
-      driverId: transfer.driverId,
-      willChangeToAsignada: transfer.status === TransferStatus.PENDIENTE && transfer.vehicleId && transfer.driverId
-    });
-
+    // Asignar vehículo y conductor a una PENDIENTE la convierte en ASIGNADA
     if (
       transfer.status === TransferStatus.PENDIENTE &&
       transfer.vehicleId &&
       transfer.driverId
     ) {
-      console.log('✅ Auto-changing status from PENDIENTE to ASIGNADA');
       transfer.status = TransferStatus.ASIGNADA;
     }
 
-    const savedTransfer = await this.transferRepository.save(transfer);
-    console.log('💾 Saved transfer with status:', savedTransfer.status);
-    return savedTransfer;
+    return this.transferRepository.save(transfer);
   }
 
   async assignVehicleAndDriver(
@@ -346,7 +328,6 @@ export class TransfersService {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
 
-    // Contar transferencias del día (PostgreSQL syntax)
     const count = await this.transferRepository
       .createQueryBuilder('transfer')
       .where('DATE(transfer.createdAt) = CURRENT_DATE')
@@ -395,10 +376,48 @@ export class TransfersService {
     }
   }
 
+  // ===== VALIDACIONES DE PERTENENCIA =====
+
+  /** El usuario debe ser ADMIN o encargado del almacén indicado. */
+  private assertWarehouseStaff(
+    user: User,
+    warehouseId: number,
+    actionDescription: string,
+  ): void {
+    if (user.role === UserRole.ADMIN) return;
+
+    const userWarehouseId = user.warehouseStaffProfile?.warehouseId;
+    if (
+      user.role !== UserRole.ENCARGADO_ALMACEN ||
+      userWarehouseId !== warehouseId
+    ) {
+      throw new ForbiddenException(
+        `Solo el encargado del almacén correspondiente puede ${actionDescription}`,
+      );
+    }
+  }
+
+  /** El usuario debe ser ADMIN o el transportista asignado a la transferencia. */
+  private assertAssignedDriver(user: User, transfer: Transfer): void {
+    if (user.role === UserRole.ADMIN) return;
+
+    if (user.role !== UserRole.TRANSPORTISTA || transfer.driverId !== user.id) {
+      throw new ForbiddenException(
+        'Solo el transportista asignado puede realizar esta acción',
+      );
+    }
+  }
+
   // ===== GESTIÓN DE ESTADOS =====
 
-  async startPreparation(id: number): Promise<Transfer> {
+  async startPreparation(id: number, user: User): Promise<Transfer> {
     const transfer = await this.findOne(id);
+
+    this.assertWarehouseStaff(
+      user,
+      transfer.originWarehouseId,
+      'iniciar la preparación',
+    );
 
     if (transfer.status !== TransferStatus.ASIGNADA) {
       throw new BadRequestException(
@@ -410,10 +429,19 @@ export class TransfersService {
     return this.transferRepository.save(transfer);
   }
 
-  async startTransit(id: number, userId: number): Promise<Transfer> {
+  async startTransit(id: number, user: User): Promise<Transfer> {
     const transfer = await this.findOne(id);
 
-    // Validar que el QR fue verificado en origen
+    if (user.role === UserRole.ENCARGADO_ALMACEN) {
+      this.assertWarehouseStaff(
+        user,
+        transfer.originWarehouseId,
+        'iniciar el tránsito',
+      );
+    } else {
+      this.assertAssignedDriver(user, transfer);
+    }
+
     if (!transfer.qrVerifiedAtOrigin) {
       throw new BadRequestException(
         'Debe verificar el código QR en el origen antes de iniciar el tránsito',
@@ -431,18 +459,12 @@ export class TransfersService {
     return this.transferRepository.save(transfer);
   }
 
-  async arriveDestination(id: number): Promise<Transfer> {
+  async arriveDestination(id: number, user: User): Promise<Transfer> {
     const transfer = await this.findOne(id);
 
-    this.logger.log(`\n🚚 ============================================`);
-    this.logger.log(`📍 CONFIRMAR LLEGADA AL DESTINO`);
-    this.logger.log(`Transfer ID: ${id}`);
-    this.logger.log(`Transfer Code: ${transfer.transferCode}`);
-    this.logger.log(`Estado actual: ${transfer.status}`);
+    this.assertAssignedDriver(user, transfer);
 
     if (transfer.status !== TransferStatus.EN_TRANSITO) {
-      this.logger.log(`❌ ERROR: Estado inválido. Se requiere EN_TRANSITO`);
-      this.logger.log(`============================================\n`);
       throw new BadRequestException(
         'Solo se puede marcar llegada de transferencias en tránsito',
       );
@@ -452,19 +474,25 @@ export class TransfersService {
     transfer.actualArrivalTime = new Date();
     const saved = await this.transferRepository.save(transfer);
 
-    this.logger.log(`✅ Estado cambiado exitosamente`);
-    this.logger.log(`Nuevo estado: ${saved.status}`);
-    this.logger.log(`Hora de llegada: ${saved.actualArrivalTime}`);
-    this.logger.log(`============================================\n`);
+    this.logger.log(
+      `Transferencia ${saved.transferCode} llegó a destino (id=${saved.id})`,
+    );
 
     return saved;
   }
 
   async complete(
     id: number,
-    receivedQuantities?: { productId: number; quantity: number }[],
+    user: User,
+    receivedQuantities?: ReceivedQuantityDto[],
   ): Promise<Transfer> {
     const transfer = await this.findOne(id);
+
+    this.assertWarehouseStaff(
+      user,
+      transfer.destinationWarehouseId,
+      'confirmar la recepción',
+    );
 
     if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
       throw new BadRequestException(
@@ -472,7 +500,6 @@ export class TransfersService {
       );
     }
 
-    // Validar que el QR fue verificado en destino
     if (!transfer.qrVerifiedAtDestination) {
       throw new BadRequestException(
         'Debe verificar el código QR en el destino antes de completar',
@@ -481,23 +508,21 @@ export class TransfersService {
 
     let hasDiscrepancies = false;
 
-    // Si se proporcionaron cantidades recibidas, actualizar detalles
-    if (receivedQuantities && receivedQuantities.length > 0) {
-      for (const received of receivedQuantities) {
-        const detail = transfer.details.find(
-          (d) => d.productId === received.productId,
-        );
+    // Registrar cantidades recibidas; sin reporte explícito se asume recepción completa
+    for (const detail of transfer.details) {
+      const received = receivedQuantities?.find(
+        (r) => r.productId === detail.productId,
+      );
+      const receivedQty =
+        received !== undefined
+          ? received.quantity
+          : Number(detail.quantityExpected);
 
-        if (detail) {
-          detail.quantityReceived = received.quantity;
-
-          if (detail.quantityExpected !== received.quantity) {
-            detail.hasDiscrepancy = true;
-            hasDiscrepancies = true;
-          }
-
-          await this.transferDetailRepository.save(detail);
-        }
+      detail.quantityReceived = receivedQty;
+      detail.hasDiscrepancy =
+        Number(detail.quantityExpected) !== Number(receivedQty);
+      if (detail.hasDiscrepancy) {
+        hasDiscrepancies = true;
       }
     }
 
@@ -506,7 +531,102 @@ export class TransfersService {
       : TransferStatus.COMPLETADA;
     transfer.completedAt = new Date();
 
-    return this.transferRepository.save(transfer);
+    // Cierre atómico: detalles + transferencia + inventarios + movimientos
+    await this.dataSource.transaction(async (manager) => {
+      await manager.save(TransferDetail, transfer.details);
+      await manager.save(Transfer, transfer);
+
+      for (const detail of transfer.details) {
+        const sentQty = Number(detail.quantityExpected);
+        const receivedQty = Number(detail.quantityReceived);
+
+        // Salida del almacén de origen (lo despachado)
+        await this.applyInventoryMovement(manager, {
+          warehouseId: transfer.originWarehouseId,
+          productId: detail.productId,
+          transferId: transfer.id,
+          movementType: MovementType.SALIDA,
+          quantity: sentQty,
+          performedByUserId: user.id,
+          reason: `Salida por transferencia ${transfer.transferCode}`,
+        });
+
+        // Entrada al almacén de destino (lo efectivamente recibido)
+        await this.applyInventoryMovement(manager, {
+          warehouseId: transfer.destinationWarehouseId,
+          productId: detail.productId,
+          transferId: transfer.id,
+          movementType: MovementType.ENTRADA,
+          quantity: receivedQty,
+          performedByUserId: user.id,
+          reason: `Entrada por transferencia ${transfer.transferCode}`,
+        });
+      }
+    });
+
+    this.logger.log(
+      `Transferencia ${transfer.transferCode} completada` +
+        (hasDiscrepancies ? ' con discrepancias' : '') +
+        ` (id=${transfer.id})`,
+    );
+
+    return this.findOne(id);
+  }
+
+  /**
+   * Aplica un movimiento de inventario (entrada o salida) y deja registro
+   * en inventory_movements. El stock nunca queda negativo: si el almacén de
+   * origen no tenía inventario inicializado, la salida lo deja en cero.
+   */
+  private async applyInventoryMovement(
+    manager: EntityManager,
+    params: {
+      warehouseId: number;
+      productId: number;
+      transferId: number;
+      movementType: MovementType;
+      quantity: number;
+      performedByUserId: number;
+      reason: string;
+    },
+  ): Promise<void> {
+    let inventory = await manager.findOne(Inventory, {
+      where: {
+        warehouseId: params.warehouseId,
+        productId: params.productId,
+      },
+    });
+
+    if (!inventory) {
+      inventory = manager.create(Inventory, {
+        warehouseId: params.warehouseId,
+        productId: params.productId,
+        quantity: 0,
+      });
+    }
+
+    const previousQuantity = Number(inventory.quantity);
+    const delta =
+      params.movementType === MovementType.ENTRADA
+        ? params.quantity
+        : -params.quantity;
+    const newQuantity = Math.max(0, previousQuantity + delta);
+
+    inventory.quantity = newQuantity;
+    await manager.save(Inventory, inventory);
+
+    const movement = manager.create(InventoryMovement, {
+      warehouseId: params.warehouseId,
+      productId: params.productId,
+      transferId: params.transferId,
+      movementType: params.movementType,
+      quantity: params.quantity,
+      previousQuantity,
+      newQuantity,
+      reason: params.reason,
+      performedByUserId: params.performedByUserId,
+    });
+    await manager.save(InventoryMovement, movement);
   }
 
   async cancel(
@@ -536,43 +656,72 @@ export class TransfersService {
 
   // ===== GENERACIÓN Y VERIFICACIÓN DE QR =====
 
-  async getQRCode(id: number): Promise<{ qrCode: string; qrImage: string }> {
+  /** Firma HMAC-SHA256 truncada que hace el QR no falsificable. */
+  private signQRPayload(payload: string): string {
+    const secret =
+      this.configService.get<string>('QR_SECRET') ||
+      this.configService.get<string>('JWT_SECRET') ||
+      'default-secret';
+    return crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex')
+      .slice(0, 16);
+  }
+
+  private isValidQRSignature(qrCode: string): boolean {
+    // Formato firmado: TRF-{id}-{timestamp}-{firma}
+    const parts = qrCode.split('-');
+    if (parts.length !== 4) {
+      // Formato legado sin firma (TRF-{id}-{timestamp}): se acepta porque
+      // la verificación principal compara contra el valor almacenado en BD
+      return parts.length === 3;
+    }
+    const payload = parts.slice(0, 3).join('-');
+    const signature = parts[3];
+    const expected = this.signQRPayload(payload);
+    return (
+      signature.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+    );
+  }
+
+  async getQRCode(
+    id: number,
+    user: User,
+  ): Promise<{ qrCode: string; qrImage: string }> {
     const transfer = await this.findOne(id);
 
-    // Si ya tiene QR, devolverlo
+    // Si ya tiene QR, devolverlo (cualquier actor de la transferencia puede mostrarlo)
     if (transfer.qrCode) {
       const qrImage = await QRCode.toDataURL(transfer.qrCode);
       return { qrCode: transfer.qrCode, qrImage };
     }
 
-    // Validar que esté en preparación
+    // Generarlo implica cambiar el estado: solo encargado de origen o admin
+    this.assertWarehouseStaff(
+      user,
+      transfer.originWarehouseId,
+      'generar el código QR',
+    );
+
     if (transfer.status !== TransferStatus.EN_PREPARACION) {
       throw new BadRequestException(
         'Solo se puede generar QR para transferencias en preparación',
       );
     }
 
-    // Generar nuevo código QR (formato: TRF-{id}-{timestamp})
-    const qrData = `TRF-${transfer.id}-${Date.now()}`;
+    const payload = `TRF-${transfer.id}-${Date.now()}`;
+    const qrData = `${payload}-${this.signQRPayload(payload)}`;
     transfer.qrCode = qrData;
-
-    // Cambiar estado a LISTA_DESPACHO al generar el QR
     transfer.status = TransferStatus.LISTA_DESPACHO;
-
-    this.logger.log(`\n📦 ============================================`);
-    this.logger.log(`🔳 GENERAR CÓDIGO QR`);
-    this.logger.log(`Transfer ID: ${id}`);
-    this.logger.log(`Transfer Code: ${transfer.transferCode}`);
-    this.logger.log(`QR Code: ${qrData}`);
-    this.logger.log(`Estado anterior: EN_PREPARACION`);
-    console.log(`Estado nuevo: LISTA_DESPACHO`);
 
     await this.transferRepository.save(transfer);
 
-    console.log(`✅ QR generado y estado actualizado`);
-    console.log(`============================================\n`);
+    this.logger.log(
+      `QR generado para ${transfer.transferCode}; estado LISTA_DESPACHO (id=${id})`,
+    );
 
-    // Generar imagen QR en base64
     const qrImage = await QRCode.toDataURL(qrData);
 
     return { qrCode: qrData, qrImage };
@@ -582,12 +731,15 @@ export class TransfersService {
     id: number,
     scannedQR: string,
     location: 'origin' | 'destination',
-    userId: number,
+    user: User,
   ): Promise<{ success: boolean; message: string; transfer?: Transfer }> {
     const transfer = await this.findOne(id);
 
-    // Verificar que el QR coincide
-    if (!transfer.qrCode || transfer.qrCode !== scannedQR) {
+    if (
+      !transfer.qrCode ||
+      transfer.qrCode !== scannedQR ||
+      !this.isValidQRSignature(scannedQR)
+    ) {
       return {
         success: false,
         message: 'El código QR no corresponde a esta transferencia',
@@ -595,7 +747,17 @@ export class TransfersService {
     }
 
     if (location === 'origin') {
-      // Verificación en origen
+      // En origen escanea el transportista asignado (o el encargado de origen)
+      if (user.role === UserRole.ENCARGADO_ALMACEN) {
+        this.assertWarehouseStaff(
+          user,
+          transfer.originWarehouseId,
+          'verificar el QR en origen',
+        );
+      } else {
+        this.assertAssignedDriver(user, transfer);
+      }
+
       if (transfer.status !== TransferStatus.LISTA_DESPACHO) {
         return {
           success: false,
@@ -605,74 +767,74 @@ export class TransfersService {
 
       transfer.qrVerifiedAtOrigin = new Date();
       transfer.status = TransferStatus.EN_TRANSITO;
+      transfer.actualDepartureTime = new Date();
 
       await this.transferRepository.save(transfer);
 
-      return {
-        success: true,
-        message: 'Verificación exitosa en origen. La transferencia está en tránsito.',
-        transfer,
-      };
-    } else {
-      // Verificación en destino
-      console.log(`\n🔳 ============================================`);
-      console.log(`📦 VERIFICAR QR EN DESTINO`);
-      console.log(`Transfer ID: ${id}`);
-      console.log(`Transfer Code: ${transfer.transferCode}`);
-      console.log(`Estado actual: ${transfer.status}`);
-
-      if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
-        console.log(`❌ ERROR: Estado inválido. Se requiere LLEGADA_DESTINO`);
-        console.log(`============================================\n`);
-        return {
-          success: false,
-          message: 'La transferencia debe haber llegado al destino',
-        };
-      }
-
-      transfer.qrVerifiedAtDestination = new Date();
-      transfer.status = TransferStatus.COMPLETADA;
-      transfer.completedAt = new Date();
-
-      // Auto-completar con las cantidades esperadas (sin discrepancias)
-      for (const detail of transfer.details) {
-        detail.quantityReceived = detail.quantityExpected;
-        detail.hasDiscrepancy = false;
-      }
-
-      await this.transferRepository.save(transfer);
-
-      console.log(`✅ QR verificado exitosamente en destino`);
-      console.log(`Nuevo estado: ${transfer.status}`);
-      console.log(`Fecha completada: ${transfer.completedAt}`);
-      console.log(`============================================\n`);
+      this.logger.log(
+        `QR verificado en origen para ${transfer.transferCode}; en tránsito (id=${id})`,
+      );
 
       return {
         success: true,
-        message: '¡Transferencia completada exitosamente!',
+        message:
+          'Verificación exitosa en origen. La transferencia está en tránsito.',
         transfer,
       };
     }
+
+    // En destino escanea el encargado del almacén de destino
+    this.assertWarehouseStaff(
+      user,
+      transfer.destinationWarehouseId,
+      'verificar el QR en destino',
+    );
+
+    if (transfer.status !== TransferStatus.LLEGADA_DESTINO) {
+      return {
+        success: false,
+        message: 'La transferencia debe haber llegado al destino',
+      };
+    }
+
+    // La verificación NO completa la transferencia: el encargado debe revisar
+    // la mercancía y confirmar la recepción (con o sin discrepancias)
+    transfer.qrVerifiedAtDestination = new Date();
+    await this.transferRepository.save(transfer);
+
+    this.logger.log(
+      `QR verificado en destino para ${transfer.transferCode}; pendiente de confirmación de recepción (id=${id})`,
+    );
+
+    return {
+      success: true,
+      message:
+        'QR verificado en destino. Revise la mercancía y confirme la recepción.',
+      transfer,
+    };
   }
 
   // ===== SEGUIMIENTO GPS =====
 
   async addGPSTracking(
     transferId: number,
-    data: { latitude: number; longitude: number; speed?: number; accuracy?: number },
+    data: {
+      latitude: number;
+      longitude: number;
+      speed?: number;
+      accuracy?: number;
+    },
+    user: User,
   ): Promise<TrackingLog> {
     const transfer = await this.findOne(transferId);
 
-    // Solo permitir tracking si está en tránsito
+    this.assertAssignedDriver(user, transfer);
+
     if (transfer.status !== TransferStatus.EN_TRANSITO) {
       throw new BadRequestException(
         'Solo se puede registrar ubicación GPS durante el tránsito',
       );
     }
-
-    console.log(`📍 GPS Tracking recibido - Transfer #${transferId}:`);
-    console.log(`   Lat: ${data.latitude}, Lng: ${data.longitude}`);
-    console.log(`   Velocidad: ${data.speed || 0} km/h, Precisión: ${data.accuracy || 0}m`);
 
     const tracking = this.trackingLogRepository.create({
       transferId,
@@ -683,10 +845,7 @@ export class TransfersService {
       recordedAt: new Date(),
     });
 
-    const saved = await this.trackingLogRepository.save(tracking);
-    console.log(`   ✅ Guardado en DB con ID: ${saved.id}`);
-
-    return saved;
+    return this.trackingLogRepository.save(tracking);
   }
 
   async getTrackingHistory(transferId: number): Promise<TrackingLog[]> {

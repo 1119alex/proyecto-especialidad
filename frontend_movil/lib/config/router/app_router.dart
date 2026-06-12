@@ -10,7 +10,6 @@ import '../../features/transfers/presentation/screens/transfers_list_screen.dart
 import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
 import '../../features/transfers/presentation/screens/qr_scanner_screen.dart';
 import '../../features/transfers/presentation/screens/qr_display_screen.dart';
-import '../../features/transfers/presentation/screens/qr_verification_screen.dart';
 import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
 import '../../features/transfers/presentation/screens/reception_screen.dart';
 import '../../features/warehouse/presentation/screens/warehouse_home_screen.dart';

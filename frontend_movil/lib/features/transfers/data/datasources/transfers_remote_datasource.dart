@@ -182,34 +182,13 @@ class TransfersRemoteDatasource {
   /// Confirmar llegada al destino
   Future<TransferModel> arriveDestination(int id) async {
     try {
-      final url = '${ApiConstants.transfersEndpoint}/$id/arrive-destination';
-      print('🚀 [DATASOURCE] ========================================');
-      print('🚀 [DATASOURCE] arriveDestination iniciado');
-      print('🚀 [DATASOURCE] Transfer ID: $id');
-      print('🚀 [DATASOURCE] URL completa: ${ApiConstants.baseUrl}$url');
-      print('🚀 [DATASOURCE] Método: PATCH');
-      print('🚀 [DATASOURCE] Data: {}');
-      print('🚀 [DATASOURCE] ========================================');
-
       final response = await _apiClient.patch(
-        url,
-        data: {}, // Enviar objeto vacío
+        '${ApiConstants.transfersEndpoint}/$id/arrive-destination',
+        data: {},
       );
-
-      print('✅ [DATASOURCE] Response recibido:');
-      print('✅ [DATASOURCE] Status: ${response.statusCode}');
-      print('✅ [DATASOURCE] Data: ${response.data}');
 
       return TransferModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      print('❌ [DATASOURCE] DioException:');
-      print('❌ [DATASOURCE] Message: ${e.message}');
-      print('❌ [DATASOURCE] Status: ${e.response?.statusCode}');
-      print('❌ [DATASOURCE] Response Data: ${e.response?.data}');
-      print('❌ [DATASOURCE] Request URL: ${e.requestOptions.uri}');
-      print('❌ [DATASOURCE] Request Method: ${e.requestOptions.method}');
-      print('❌ [DATASOURCE] Request Data: ${e.requestOptions.data}');
-
       if (e.response?.statusCode == 400) {
         throw Exception(e.response?.data['message'] ??
             'Estado incorrecto para confirmar llegada');
@@ -218,7 +197,34 @@ class TransfersRemoteDatasource {
       }
       throw Exception('Error al confirmar llegada: ${e.message}');
     } catch (e) {
-      print('❌ [DATASOURCE] Error inesperado: $e');
+      throw Exception('Error inesperado: $e');
+    }
+  }
+
+  /// Confirmar la recepción en destino con las cantidades recibidas
+  /// (cierra la transferencia, con o sin discrepancias)
+  Future<TransferModel> completeTransfer(
+    int id,
+    List<Map<String, dynamic>> receivedQuantities,
+  ) async {
+    try {
+      final response = await _apiClient.patch(
+        '${ApiConstants.transfersEndpoint}/$id/complete',
+        data: {'receivedQuantities': receivedQuantities},
+      );
+
+      return TransferModel.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw Exception(e.response?.data['message'] ??
+            'Estado incorrecto para confirmar la recepción');
+      } else if (e.response?.statusCode == 403) {
+        throw Exception('No tienes permiso para confirmar esta recepción');
+      } else if (e.response?.statusCode == 404) {
+        throw Exception('Transferencia no encontrada');
+      }
+      throw Exception('Error al confirmar recepción: ${e.message}');
+    } catch (e) {
       throw Exception('Error inesperado: $e');
     }
   }

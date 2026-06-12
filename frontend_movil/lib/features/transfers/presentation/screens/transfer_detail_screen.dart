@@ -143,21 +143,41 @@ class TransferDetailScreen extends ConsumerWidget {
 
       // Si soy el encargado del almacén de DESTINO
       if (userWarehouseId == transfer.destinationWarehouseId) {
-        // Escanear QR al recibir
         if (transfer.status == 'LLEGADA_DESTINO') {
-          buttons.add(
-            _buildActionButton(
-              label: 'Escanear QR y Recibir',
-              icon: Icons.qr_code_scanner,
-              color: const Color(0xFF10B981),
-              onPressed: () {
-                context.push('/qr-scanner', extra: {
-                  'transferId': transfer.id,
-                  'location': 'destination',
-                });
-              },
-            ),
-          );
+          if (transfer.qrVerifiedAtDestination == null) {
+            // Escanear QR al recibir
+            buttons.add(
+              _buildActionButton(
+                label: 'Escanear QR y Recibir',
+                icon: Icons.qr_code_scanner,
+                color: const Color(0xFF10B981),
+                onPressed: () {
+                  context.push('/qr-scanner', extra: {
+                    'transferId': transfer.id,
+                    'location': 'destination',
+                  });
+                },
+              ),
+            );
+          } else {
+            // QR ya verificado: continuar con la confirmación de recepción
+            buttons.add(
+              _buildActionButton(
+                label: 'Confirmar Recepción',
+                icon: Icons.fact_check,
+                color: const Color(0xFF10B981),
+                onPressed: () {
+                  context.push('/reception', extra: {
+                    'transferId': transfer.id,
+                    'transferCode': transfer.transferCode,
+                    'originName': transfer.originWarehouse?.name ?? 'Origen',
+                    'destinationName':
+                        transfer.destinationWarehouse?.name ?? 'Destino',
+                  });
+                },
+              ),
+            );
+          }
         }
       }
     }
@@ -193,6 +213,26 @@ class TransferDetailScreen extends ConsumerWidget {
                 'transferId': transfer.id,
                 'transferCode': transfer.transferCode,
                 'status': transfer.status,
+              });
+            },
+          ),
+        );
+      }
+
+      // Mostrar QR cuando llegó al destino (para que el encargado lo escanee)
+      if (transfer.status == 'LLEGADA_DESTINO') {
+        buttons.add(
+          _buildActionButton(
+            label: 'Mostrar QR para Entrega',
+            icon: Icons.qr_code,
+            color: const Color(0xFF10B981),
+            onPressed: () {
+              context.push('/qr-display', extra: {
+                'transferId': transfer.id,
+                'transferCode': transfer.transferCode,
+                'originName': transfer.originWarehouse?.name ?? 'Origen',
+                'destinationName': transfer.destinationWarehouse?.name ?? 'Destino',
+                'totalProducts': transfer.details?.length ?? 0,
               });
             },
           ),

@@ -1,12 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Warehouse } from '../../entities/warehouse.entity';
 import { WarehouseStaffProfile } from '../../entities/warehouse-staff-profile.entity';
 import { User } from '../../entities/user.entity';
+import { Inventory } from '../../entities/inventory.entity';
+import { InventoryMovement } from '../../entities/inventory-movement.entity';
+import { Product } from '../../entities/product.entity';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
+import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { MovementType } from '../../common/enums/inventory-movement.enum';
 
 @Injectable()
 export class WarehousesService {
@@ -17,6 +22,11 @@ export class WarehousesService {
     private readonly staffProfileRepository: Repository<WarehouseStaffProfile>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Inventory)
+    private readonly inventoryRepository: Repository<Inventory>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createWarehouseDto: CreateWarehouseDto): Promise<Warehouse> {
@@ -129,6 +139,71 @@ export class WarehousesService {
     await this.staffProfileRepository.delete({ warehouseId: id });
 
     await this.warehouseRepository.remove(warehouse);
+  }
+
+  // ===== INVENTARIO =====
+
+  async getInventory(warehouseId: number): Promise<Inventory[]> {
+    await this.findOne(warehouseId); // Verificar que existe
+
+    return this.inventoryRepository.find({
+      where: { warehouseId },
+      relations: ['product'],
+      order: { productId: 'ASC' },
+    });
+  }
+
+  /**
+   * Fija el stock de un producto en el almacén (ajuste manual del admin),
+   * dejando registro del movimiento de tipo AJUSTE.
+   */
+  async adjustInventory(
+    warehouseId: number,
+    dto: AdjustInventoryDto,
+    performedByUserId: number,
+  ): Promise<Inventory> {
+    await this.findOne(warehouseId);
+
+    const product = await this.productRepository.findOne({
+      where: { id: dto.productId },
+    });
+    if (!product) {
+      throw new NotFoundException(
+        `Producto con ID ${dto.productId} no encontrado`,
+      );
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      let inventory = await manager.findOne(Inventory, {
+        where: { warehouseId, productId: dto.productId },
+      });
+
+      if (!inventory) {
+        inventory = manager.create(Inventory, {
+          warehouseId,
+          productId: dto.productId,
+          quantity: 0,
+        });
+      }
+
+      const previousQuantity = Number(inventory.quantity);
+      inventory.quantity = dto.quantity;
+      const saved = await manager.save(Inventory, inventory);
+
+      const movement = manager.create(InventoryMovement, {
+        warehouseId,
+        productId: dto.productId,
+        movementType: MovementType.AJUSTE,
+        quantity: Math.abs(dto.quantity - previousQuantity),
+        previousQuantity,
+        newQuantity: dto.quantity,
+        reason: dto.reason || 'Ajuste manual de inventario',
+        performedByUserId,
+      });
+      await manager.save(InventoryMovement, movement);
+
+      return saved;
+    });
   }
 
   // Nuevo método para obtener encargados disponibles (sin asignar)

@@ -12,6 +12,11 @@ import {
 import { TransfersService } from './transfers.service';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
+import { AssignTransferDto } from './dto/assign-transfer.dto';
+import { VerifyQRDto } from './dto/verify-qr.dto';
+import { GPSTrackingDto } from './dto/gps-tracking.dto';
+import { CompleteTransferDto } from './dto/complete-transfer.dto';
+import { CancelTransferDto } from './dto/cancel-transfer.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -58,12 +63,12 @@ export class TransfersController {
   @Roles(UserRole.ADMIN)
   assignVehicleAndDriver(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { vehicleId: number; driverId: number },
+    @Body() assignDto: AssignTransferDto,
   ) {
     return this.transfersService.assignVehicleAndDriver(
       id,
-      body.vehicleId,
-      body.driverId,
+      assignDto.vehicleId,
+      assignDto.driverId,
     );
   }
 
@@ -77,57 +82,73 @@ export class TransfersController {
 
   @Patch(':id/start-preparation')
   @Roles(UserRole.ADMIN, UserRole.ENCARGADO_ALMACEN)
-  startPreparation(@Param('id', ParseIntPipe) id: number) {
-    return this.transfersService.startPreparation(id);
+  startPreparation(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser() user: User,
+  ) {
+    return this.transfersService.startPreparation(id, user);
   }
 
   @Patch(':id/start-transit')
-  @Roles(UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
+  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
   startTransit(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
-    return this.transfersService.startTransit(id, user.id);
+    return this.transfersService.startTransit(id, user);
   }
 
   @Patch(':id/arrive-destination')
-  @Roles(UserRole.TRANSPORTISTA)
-  arriveDestination(@Param('id', ParseIntPipe) id: number) {
-    return this.transfersService.arriveDestination(id);
+  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA)
+  arriveDestination(
+    @Param('id', ParseIntPipe) id: number,
+    @GetUser() user: User,
+  ) {
+    return this.transfersService.arriveDestination(id, user);
   }
 
   @Patch(':id/complete')
-  @Roles(UserRole.ENCARGADO_ALMACEN)
+  @Roles(UserRole.ADMIN, UserRole.ENCARGADO_ALMACEN)
   complete(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { receivedQuantities?: { productId: number; quantity: number }[] },
+    @Body() completeDto: CompleteTransferDto,
+    @GetUser() user: User,
   ) {
-    return this.transfersService.complete(id, body.receivedQuantities);
+    return this.transfersService.complete(
+      id,
+      user,
+      completeDto.receivedQuantities,
+    );
   }
 
   @Patch(':id/cancel')
   @Roles(UserRole.ADMIN)
   cancel(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { reason: string },
+    @Body() cancelDto: CancelTransferDto,
     @GetUser() user: User,
   ) {
-    return this.transfersService.cancel(id, body.reason, user.id);
+    return this.transfersService.cancel(id, cancelDto.reason, user.id);
   }
 
   // === VERIFICACIÓN QR ===
 
   @Get(':id/qr')
   @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
-  getQRCode(@Param('id', ParseIntPipe) id: number) {
-    return this.transfersService.getQRCode(id);
+  getQRCode(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
+    return this.transfersService.getQRCode(id, user);
   }
 
   @Post(':id/verify-qr')
   @Roles(UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
   verifyQR(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { qrCode: string; location: 'origin' | 'destination' },
+    @Body() verifyDto: VerifyQRDto,
     @GetUser() user: User,
   ) {
-    return this.transfersService.verifyQR(id, body.qrCode, body.location, user.id);
+    return this.transfersService.verifyQR(
+      id,
+      verifyDto.qrCode,
+      verifyDto.location,
+      user,
+    );
   }
 
   // === SEGUIMIENTO GPS ===
@@ -136,9 +157,10 @@ export class TransfersController {
   @Roles(UserRole.TRANSPORTISTA)
   addGPSTracking(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { latitude: number; longitude: number; speed?: number; accuracy?: number },
+    @Body() trackingDto: GPSTrackingDto,
+    @GetUser() user: User,
   ) {
-    return this.transfersService.addGPSTracking(id, body);
+    return this.transfersService.addGPSTracking(id, trackingDto, user);
   }
 
   @Get(':id/tracking')

@@ -45,6 +45,11 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
     });
 
     try {
+      // Capturar los datos de la transferencia antes de invalidar providers
+      // (se usan para abrir la pantalla de recepción en destino)
+      final transfer =
+          ref.read(transferDetailProvider(widget.transferId)).value;
+
       // Verificar el QR con el backend
       await ref
           .read(qRVerifierProvider.notifier)
@@ -63,7 +68,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       // Mostrar mensaje de éxito según ubicación
       final successMessage = widget.location == 'origin'
           ? 'QR verificado exitosamente. Iniciando tránsito...'
-          : 'QR verificado exitosamente. ¡Transferencia completada!';
+          : 'QR verificado. Revise la mercancía y confirme la recepción.';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -84,10 +89,20 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         ),
       );
 
-      // Regresar a la pantalla anterior después de un delay
       Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          context.pop();
+        if (!mounted) return;
+
+        if (widget.location == 'destination') {
+          // En destino el flujo continúa con la confirmación de recepción
+          context.pushReplacement('/reception', extra: {
+            'transferId': widget.transferId,
+            'transferCode': transfer?.transferCode ?? '#${widget.transferId}',
+            'originName': transfer?.originWarehouse?.name ?? 'Origen',
+            'destinationName':
+                transfer?.destinationWarehouse?.name ?? 'Destino',
+          });
+        } else {
+          context.go('/'); // Navegar al home
         }
       });
     } catch (e) {
