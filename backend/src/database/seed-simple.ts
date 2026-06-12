@@ -21,7 +21,7 @@ async function runSeed() {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_DATABASE || 'inventory_transfer',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    synchronize: false,
+    synchronize: true,
   });
 
   try {
