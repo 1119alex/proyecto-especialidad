@@ -8,6 +8,7 @@ import Vehicles from './pages/Vehicles';
 import Products from './pages/Products';
 import Users from './pages/Users';
 import Transfers from './pages/Transfers';
+import Reports from './pages/Reports';
 
 function App() {
   return (
@@ -63,6 +64,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Transfers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Reports />
               </ProtectedRoute>
             }
           />

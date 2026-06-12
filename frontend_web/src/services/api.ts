@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// El backend expone la API bajo el prefijo /api/v1
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -27,7 +28,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Un 401 del propio login significa credenciales incorrectas: debe
+    // llegar al formulario para mostrar el error, no recargar la página
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+    if (error.response?.status === 401 && !isLoginRequest) {
       // Token expirado o inválido
       localStorage.removeItem('token');
       localStorage.removeItem('user');

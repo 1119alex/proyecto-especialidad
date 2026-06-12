@@ -21,14 +21,15 @@ Desarrollar una API REST modular y segura con NestJS que gestione el ciclo compl
 
 **Incluye:**
 - Módulo de Autenticación y Roles (login diferenciado por perfil, JWT, guards)
-- Módulo de Gestión de Transferencias (CRUD, ciclo de estados)
+- Módulo de Gestión de Transferencias (CRUD, ciclo de estados, inventario automático al cierre)
 - Módulo de Asignación de Camion (consulta y selección de vehículos disponibles)
-- Módulo de Seguimiento GPS 
-- Módulo de Verificación QR 
-- Módulo de Notificaciones Push 
+- Módulo de Seguimiento GPS (captura adaptativa, envío por lotes, WebSocket en vivo)
+- Módulo de Verificación QR (códigos firmados con HMAC)
+- Módulo de Notificaciones (persistencia + WebSocket + push FCM)
+- Geocercas: detección automática de llegada al radio del almacén destino
+- Módulo de Reportes con exportación PDF
 
 **No incluye (por ahora):**
-- Geocercas automáticas para detección de llegada/salida
 - Integración con sistemas ERP externos
 
 ## Stack tecnológico
@@ -82,6 +83,19 @@ Cada módulo sigue el patrón de capas de NestJS: **Controller** (recibe la peti
 ### Inventario
 - `GET /warehouses/:id/inventory` — stock por almacén
 - `PATCH /warehouses/:id/inventory` — ajuste manual de stock (admin, deja movimiento AJUSTE)
+
+### Notificaciones
+- `GET /notifications` — notificaciones del usuario autenticado
+- `PATCH /notifications/:id/read` — marcar como leída
+- `POST /notifications/fcm-token` — registrar token FCM del dispositivo
+
+### Reportes
+- `GET /reports/transfers` — reporte con resumen y filtros (período, estado, origen, destino)
+- `GET /reports/transfers/pdf` — exportación del reporte en PDF
+
+### WebSocket (namespace `/tracking`, JWT en el handshake)
+- `join-transfer` / `leave-transfer` — suscripción al seguimiento de una transferencia
+- Eventos emitidos: `tracking:points` (GPS en vivo), `transfer:status` (llegada/cierre), `notification:new`
 
 ## Cómo ejecutar el proyecto (local)
 

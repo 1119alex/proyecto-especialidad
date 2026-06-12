@@ -52,6 +52,9 @@ class TrackingBufferService {
   /// Callback para que la UI reciba cada posición capturada
   void Function(Position position)? onPosition;
 
+  /// Callback cuando el backend detecta la llegada por geocerca (RF11)
+  void Function()? onGeofenceArrival;
+
   bool get isTracking => _activeTransferId != null;
 
   /// Umbral de distancia (metros) según la velocidad actual:
@@ -65,16 +68,19 @@ class TrackingBufferService {
   Future<void> start(
     int transferId, {
     void Function(Position position)? onPosition,
+    void Function()? onGeofenceArrival,
   }) async {
     if (_activeTransferId == transferId) {
       // Ya está rastreando esta transferencia: solo re-enganchar la UI
       this.onPosition = onPosition;
+      this.onGeofenceArrival = onGeofenceArrival;
       return;
     }
     await stop();
 
     _activeTransferId = transferId;
     this.onPosition = onPosition;
+    this.onGeofenceArrival = onGeofenceArrival;
 
     // Stream con filtro base fino; el filtrado adaptativo se aplica encima
     _positionSub = Geolocator.getPositionStream(
@@ -184,7 +190,7 @@ class TrackingBufferService {
       for (var i = 0; i < pending.length; i += maxPerBatch) {
         final chunk = pending.skip(i).take(maxPerBatch).toList();
 
-        await _datasource.addGPSTrackingBatch(
+        final response = await _datasource.addGPSTrackingBatch(
           transferId: transferId,
           points: chunk
               .map((log) => {
@@ -198,6 +204,26 @@ class TrackingBufferService {
         );
 
         await _db.deleteTrackingLogsByIds(chunk.map((l) => l.id).toList());
+
+        // El backend detectó la llegada por geocerca: avisar a la UI y
+        // detener la captura (el estado ya es LLEGADA_DESTINO)
+        if (response['arrivedByGeofence'] == true) {
+          final arrivalCallback = onGeofenceArrival;
+
+          // Los puntos restantes ya no son aceptados fuera de tránsito
+          final remaining =
+              await _db.getPendingTrackingLogsByTransfer(transferId);
+          if (remaining.isNotEmpty) {
+            await _db.deleteTrackingLogsByIds(
+              remaining.map((l) => l.id).toList(),
+            );
+          }
+
+          _flushing = false;
+          await stop();
+          arrivalCallback?.call();
+          return;
+        }
       }
     } catch (e) {
       _logger.w('Lote GPS no enviado, queda en cola local: $e');
@@ -225,6 +251,7 @@ class TrackingBufferService {
     _lastRecorded = null;
     _lastRecordedAt = null;
     onPosition = null;
+    onGeofenceArrival = null;
   }
 }
 

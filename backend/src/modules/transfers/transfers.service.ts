@@ -20,7 +20,12 @@ import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { ReceivedQuantityDto } from './dto/complete-transfer.dto';
 import { GPSTrackingPointDto } from './dto/gps-tracking-batch.dto';
-import { TrackingGateway } from './tracking.gateway';
+import { TrackingGateway } from '../realtime/tracking.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
+import {
+  NotificationType,
+  NotificationPriority,
+} from '../../common/enums/notification-type.enum';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { MovementType } from '../../common/enums/inventory-movement.enum';
@@ -44,6 +49,7 @@ export class TransfersService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly trackingGateway: TrackingGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -140,7 +146,14 @@ export class TransfersService {
       },
     );
 
-    return this.findOne(savedTransfer.id);
+    const result = await this.findOne(savedTransfer.id);
+
+    // Si nació asignada, notificar al transportista y al almacén origen
+    if (result.status === TransferStatus.ASIGNADA) {
+      this.notifyAssignment(result);
+    }
+
+    return result;
   }
 
   async findAll(user?: User): Promise<Transfer[]> {
@@ -245,6 +258,21 @@ export class TransfersService {
 
     if (updateTransferDto.status) {
       this.validateStatusTransition(transfer.status, updateTransferDto.status);
+
+      // Las transiciones operativas tienen reglas propias (verificación QR,
+      // inventario, discrepancias, notificaciones) y solo pueden ejecutarse
+      // desde sus endpoints dedicados; por esta vía se evitaría esa lógica
+      const allowedViaUpdate = [
+        TransferStatus.ASIGNADA,
+        TransferStatus.CANCELADA,
+      ];
+      if (!allowedViaUpdate.includes(updateTransferDto.status)) {
+        throw new BadRequestException(
+          `El estado ${updateTransferDto.status} solo puede establecerse desde su ` +
+            'endpoint dedicado (start-preparation, verify-qr, start-transit, ' +
+            'arrive-destination, complete)',
+        );
+      }
     }
 
     if (
@@ -279,15 +307,21 @@ export class TransfersService {
     }
 
     // Asignar vehículo y conductor a una PENDIENTE la convierte en ASIGNADA
-    if (
+    const becameAssigned =
       transfer.status === TransferStatus.PENDIENTE &&
-      transfer.vehicleId &&
-      transfer.driverId
-    ) {
+      !!transfer.vehicleId &&
+      !!transfer.driverId;
+    if (becameAssigned) {
       transfer.status = TransferStatus.ASIGNADA;
     }
 
-    return this.transferRepository.save(transfer);
+    const saved = await this.transferRepository.save(transfer);
+
+    if (becameAssigned) {
+      this.notifyAssignment(await this.findOne(saved.id));
+    }
+
+    return saved;
   }
 
   async assignVehicleAndDriver(
@@ -307,7 +341,11 @@ export class TransfersService {
     transfer.driverId = driverId;
     transfer.status = TransferStatus.ASIGNADA;
 
-    return this.transferRepository.save(transfer);
+    const saved = await this.transferRepository.save(transfer);
+
+    this.notifyAssignment(await this.findOne(saved.id));
+
+    return saved;
   }
 
   async remove(id: number): Promise<void> {
@@ -376,6 +414,94 @@ export class TransfersService {
       throw new BadRequestException(
         `No se puede cambiar el estado de ${currentStatus} a ${newStatus}`,
       );
+    }
+  }
+
+  // ===== NOTIFICACIONES DE EVENTOS (RF06) =====
+
+  /** Notifica asignación al transportista y preparación al almacén origen */
+  private notifyAssignment(transfer: Transfer): void {
+    const route = `${transfer.originWarehouse?.name ?? 'origen'} → ${transfer.destinationWarehouse?.name ?? 'destino'}`;
+
+    if (transfer.driverId) {
+      void this.notificationsService.notifyUser(transfer.driverId, {
+        type: NotificationType.ASIGNACION,
+        title: 'Nuevo viaje asignado',
+        message: `Se te asignó la transferencia ${transfer.transferCode} (${route}).`,
+        transferId: transfer.id,
+      });
+    }
+
+    void this.notificationsService.notifyWarehouseStaff(
+      transfer.originWarehouseId,
+      {
+        type: NotificationType.PREPARACION,
+        title: 'Preparar carga',
+        message: `Prepare la carga de la transferencia ${transfer.transferCode} (${route}).`,
+        transferId: transfer.id,
+      },
+    );
+  }
+
+  /** Notifica la llegada a destino al administrador y al almacén destino */
+  private notifyArrival(transfer: Transfer, byGeofence: boolean): void {
+    const how = byGeofence
+      ? 'detectada automáticamente por geocerca'
+      : 'confirmada por el transportista';
+    const message = `La transferencia ${transfer.transferCode} llegó al almacén destino (${how}).`;
+
+    void this.notificationsService.notifyAdmins({
+      type: NotificationType.LLEGADA,
+      title: 'Llegada a destino',
+      message,
+      transferId: transfer.id,
+    });
+
+    void this.notificationsService.notifyWarehouseStaff(
+      transfer.destinationWarehouseId,
+      {
+        type: NotificationType.LLEGADA,
+        title: 'Mercancía por recibir',
+        message: `${message} Verifique el QR y confirme la recepción.`,
+        transferId: transfer.id,
+      },
+    );
+  }
+
+  /** Notifica el cierre de la transferencia (con o sin discrepancias) */
+  private notifyCompletion(transfer: Transfer, hasDiscrepancies: boolean): void {
+    if (hasDiscrepancies) {
+      const detail = transfer.details
+        .filter((d) => d.hasDiscrepancy)
+        .map(
+          (d) =>
+            `${d.productName}: esperado ${Number(d.quantityExpected)}, recibido ${Number(d.quantityReceived)}`,
+        )
+        .join('; ');
+
+      void this.notificationsService.notifyAdmins({
+        type: NotificationType.DISCREPANCIA,
+        title: 'Transferencia completada con discrepancias',
+        message: `${transfer.transferCode} cerró con diferencias — ${detail}.`,
+        transferId: transfer.id,
+        priority: NotificationPriority.HIGH,
+      });
+    } else {
+      void this.notificationsService.notifyAdmins({
+        type: NotificationType.RECEPCION,
+        title: 'Transferencia completada',
+        message: `${transfer.transferCode} fue recibida y cerrada sin discrepancias.`,
+        transferId: transfer.id,
+      });
+    }
+
+    if (transfer.driverId) {
+      void this.notificationsService.notifyUser(transfer.driverId, {
+        type: NotificationType.RECEPCION,
+        title: 'Entrega confirmada',
+        message: `La recepción de ${transfer.transferCode} fue confirmada en destino.`,
+        transferId: transfer.id,
+      });
     }
   }
 
@@ -481,6 +607,12 @@ export class TransfersService {
       `Transferencia ${saved.transferCode} llegó a destino (id=${saved.id})`,
     );
 
+    this.notifyArrival(transfer, false);
+    this.trackingGateway.emitTransferEvent(transfer.id, {
+      type: 'arrival',
+      status: saved.status,
+    });
+
     return saved;
   }
 
@@ -573,6 +705,12 @@ export class TransfersService {
         ` (id=${transfer.id})`,
     );
 
+    this.notifyCompletion(transfer, hasDiscrepancies);
+    this.trackingGateway.emitTransferEvent(transfer.id, {
+      type: 'completed',
+      status: transfer.status,
+    });
+
     return this.findOne(id);
   }
 
@@ -654,7 +792,19 @@ export class TransfersService {
     transfer.cancelledByUserId = cancelledByUserId;
     transfer.cancelledAt = new Date();
 
-    return this.transferRepository.save(transfer);
+    const saved = await this.transferRepository.save(transfer);
+
+    if (transfer.driverId) {
+      void this.notificationsService.notifyUser(transfer.driverId, {
+        type: NotificationType.CANCELACION,
+        title: 'Viaje cancelado',
+        message: `La transferencia ${transfer.transferCode} fue cancelada: ${reason}`,
+        transferId: transfer.id,
+        priority: NotificationPriority.HIGH,
+      });
+    }
+
+    return saved;
   }
 
   // ===== GENERACIÓN Y VERIFICACIÓN DE QR =====
@@ -819,6 +969,74 @@ export class TransfersService {
 
   // ===== SEGUIMIENTO GPS =====
 
+  /** Distancia haversine en metros entre dos coordenadas */
+  private haversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const earthRadius = 6371000; // metros
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+
+    return 2 * earthRadius * Math.asin(Math.sqrt(a));
+  }
+
+  /**
+   * Geocerca (RF11): si la última posición está dentro del radio del almacén
+   * destino, marca automáticamente la llegada y dispara las notificaciones.
+   * Devuelve true si la llegada fue detectada.
+   */
+  private async checkGeofenceArrival(
+    transfer: Transfer,
+    latitude: number,
+    longitude: number,
+  ): Promise<boolean> {
+    const destination = transfer.destinationWarehouse;
+    if (
+      !destination ||
+      destination.latitude == null ||
+      destination.longitude == null
+    ) {
+      return false;
+    }
+
+    const distance = this.haversineDistance(
+      latitude,
+      longitude,
+      Number(destination.latitude),
+      Number(destination.longitude),
+    );
+
+    const radius = Number(destination.geofenceRadius) || 100;
+    if (distance > radius) {
+      return false;
+    }
+
+    transfer.status = TransferStatus.LLEGADA_DESTINO;
+    transfer.actualArrivalTime = new Date();
+    await this.transferRepository.save(transfer);
+
+    this.logger.log(
+      `Geocerca activada: ${transfer.transferCode} llegó a destino ` +
+        `(distancia ${Math.round(distance)} m, radio ${radius} m)`,
+    );
+
+    this.notifyArrival(transfer, true);
+    this.trackingGateway.emitTransferEvent(transfer.id, {
+      type: 'geofence-arrival',
+      status: transfer.status,
+    });
+
+    return true;
+  }
+
   async addGPSTracking(
     transferId: number,
     data: {
@@ -853,6 +1071,9 @@ export class TransfersService {
     // Push en tiempo real al mapa de seguimiento
     this.trackingGateway.emitTrackingPoints(transferId, [saved]);
 
+    // Geocerca: detección automática de llegada (RF11)
+    await this.checkGeofenceArrival(transfer, data.latitude, data.longitude);
+
     return saved;
   }
 
@@ -866,7 +1087,12 @@ export class TransfersService {
     transferId: number,
     points: GPSTrackingPointDto[],
     user: User,
-  ): Promise<{ saved: number; trackingLogs: TrackingLog[] }> {
+  ): Promise<{
+    saved: number;
+    trackingLogs: TrackingLog[];
+    transferStatus: TransferStatus;
+    arrivedByGeofence: boolean;
+  }> {
     const transfer = await this.findOne(transferId);
 
     this.assertAssignedDriver(user, transfer);
@@ -892,7 +1118,20 @@ export class TransfersService {
 
     this.trackingGateway.emitTrackingPoints(transferId, saved);
 
-    return { saved: saved.length, trackingLogs: saved };
+    // Geocerca contra el punto más reciente del lote (RF11)
+    const lastPoint = points[points.length - 1];
+    const arrivedByGeofence = await this.checkGeofenceArrival(
+      transfer,
+      lastPoint.latitude,
+      lastPoint.longitude,
+    );
+
+    return {
+      saved: saved.length,
+      trackingLogs: saved,
+      transferStatus: transfer.status,
+      arrivedByGeofence,
+    };
   }
 
   async getTrackingHistory(transferId: number): Promise<TrackingLog[]> {

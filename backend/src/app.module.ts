@@ -12,6 +12,9 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { WarehousesModule } from './modules/warehouses/warehouses.module';
 import { ProductsModule } from './modules/products/products.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -43,9 +46,9 @@ import { TransfersModule } from './modules/transfers/transfers.module';
     WarehousesModule,
     ProductsModule,
     TransfersModule,
-    // TrackingModule,
-    // NotificationsModule,
-    // QrModule,
+    RealtimeModule,
+    NotificationsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

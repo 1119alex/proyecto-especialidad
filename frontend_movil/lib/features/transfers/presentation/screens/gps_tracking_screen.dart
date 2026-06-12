@@ -88,7 +88,46 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
     await _trackingService.start(
       widget.transferId,
       onPosition: _onPositionUpdate,
+      onGeofenceArrival: _onGeofenceArrival,
     );
+  }
+
+  /// El backend detectó la llegada al destino por geocerca (RF11)
+  void _onGeofenceArrival() {
+    if (!mounted) return;
+
+    setState(() {
+      _isTracking = false;
+    });
+
+    ref.invalidate(transfersProvider);
+    ref.invalidate(transferDetailProvider(widget.transferId));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '¡Llegada al destino detectada automáticamente! '
+                'El almacén ya fue notificado.',
+                style: TextStyle(fontSize: 15),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   void _onPositionUpdate(Position position) {

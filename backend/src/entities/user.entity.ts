@@ -47,6 +47,11 @@ export class User {
   @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin: Date;
 
+  // Token FCM del dispositivo para notificaciones push
+  @Column({ name: 'fcm_token', length: 255, nullable: true })
+  @Exclude()
+  fcmToken: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

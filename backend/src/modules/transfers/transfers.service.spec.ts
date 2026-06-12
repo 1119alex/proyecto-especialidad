@@ -9,7 +9,8 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { TransfersService } from './transfers.service';
-import { TrackingGateway } from './tracking.gateway';
+import { TrackingGateway } from '../realtime/tracking.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
@@ -114,6 +115,13 @@ describe('TransfersService', () => {
 
   const mockTrackingGateway = {
     emitTrackingPoints: jest.fn(),
+    emitTransferEvent: jest.fn(),
+  };
+
+  const mockNotificationsService = {
+    notifyUser: jest.fn().mockResolvedValue(undefined),
+    notifyAdmins: jest.fn().mockResolvedValue(undefined),
+    notifyWarehouseStaff: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -145,6 +153,7 @@ describe('TransfersService', () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: TrackingGateway, useValue: mockTrackingGateway },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -256,6 +265,28 @@ describe('TransfersService', () => {
       await expect(
         service.update(1, { status: TransferStatus.CANCELADA } as any),
       ).rejects.toThrow(/razón de cancelación/);
+    });
+
+    it('bloquea completar por PATCH: el cierre exige su endpoint dedicado', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(
+        makeTransfer({ status: TransferStatus.LLEGADA_DESTINO }),
+      );
+
+      // Sin esto se evitaría la verificación QR, las discrepancias y la
+      // actualización de inventario de complete()
+      await expect(
+        service.update(1, { status: TransferStatus.COMPLETADA } as any),
+      ).rejects.toThrow(/endpoint dedicado/);
+    });
+
+    it('bloquea iniciar tránsito por PATCH (evitaría la verificación QR)', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(
+        makeTransfer({ status: TransferStatus.LISTA_DESPACHO }),
+      );
+
+      await expect(
+        service.update(1, { status: TransferStatus.EN_TRANSITO } as any),
+      ).rejects.toThrow(/endpoint dedicado/);
     });
   });
 
@@ -584,6 +615,67 @@ describe('TransfersService', () => {
         1,
         result.trackingLogs,
       );
+    });
+  });
+
+  describe('geocerca (RF11)', () => {
+    function makeInTransitNearDestination(): Transfer {
+      return makeTransfer({
+        status: TransferStatus.EN_TRANSITO,
+        destinationWarehouse: {
+          id: 2,
+          name: 'Almacén Destino',
+          latitude: -16.5,
+          longitude: -68.15,
+          geofenceRadius: 100,
+        } as any,
+      });
+    }
+
+    it('marca llegada automática cuando el punto entra al radio del destino', async () => {
+      const transfer = makeInTransitNearDestination();
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      mockTrackingLogRepository.save.mockImplementation(
+        async (logs: any) => logs,
+      );
+
+      // ~11 metros del almacén destino (dentro del radio de 100 m)
+      const result = await service.addGPSTrackingBatch(
+        1,
+        [{ latitude: -16.5001, longitude: -68.15 }],
+        makeDriver(),
+      );
+
+      expect(result.arrivedByGeofence).toBe(true);
+      expect(result.transferStatus).toBe(TransferStatus.LLEGADA_DESTINO);
+      expect(transfer.actualArrivalTime).toBeInstanceOf(Date);
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalled();
+      expect(mockNotificationsService.notifyWarehouseStaff).toHaveBeenCalledWith(
+        2,
+        expect.objectContaining({ transferId: 1 }),
+      );
+      expect(mockTrackingGateway.emitTransferEvent).toHaveBeenCalledWith(1, {
+        type: 'geofence-arrival',
+        status: TransferStatus.LLEGADA_DESTINO,
+      });
+    });
+
+    it('no marca llegada cuando el punto está fuera del radio', async () => {
+      const transfer = makeInTransitNearDestination();
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      mockTrackingLogRepository.save.mockImplementation(
+        async (logs: any) => logs,
+      );
+
+      // ~1.1 km del almacén destino
+      const result = await service.addGPSTrackingBatch(
+        1,
+        [{ latitude: -16.51, longitude: -68.15 }],
+        makeDriver(),
+      );
+
+      expect(result.arrivedByGeofence).toBe(false);
+      expect(result.transferStatus).toBe(TransferStatus.EN_TRANSITO);
     });
   });
 });

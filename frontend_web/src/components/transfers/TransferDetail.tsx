@@ -6,7 +6,7 @@ import { TrackingMap } from './TrackingMap';
 
 // URL raíz del servidor (sin el prefijo /api/v1) para el WebSocket
 const SOCKET_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:3000'
+  import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'
 ).replace(/\/api\/v1\/?$/, '');
 
 interface TransferDetailProps {
@@ -77,6 +77,15 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           const newPoints = payload.points.filter((p) => !known.has(p.id));
           return newPoints.length > 0 ? [...prev, ...newPoints] : prev;
         });
+      }
+    );
+
+    // Cambios de estado en vivo (ej. llegada detectada por geocerca)
+    socket.on(
+      'transfer:status',
+      (payload: { transferId: number; type: string; status: string }) => {
+        if (payload.transferId !== transfer.id) return;
+        refreshTransfer();
       }
     );
 

@@ -10,13 +10,15 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { TrackingLog } from '../../entities/tracking-log.entity';
+import { Notification } from '../../entities/notification.entity';
 
 /**
- * Gateway de seguimiento en tiempo real.
+ * Gateway de tiempo real del sistema.
  *
- * Los clientes se autentican con su JWT en el handshake y se suscriben a la
- * room de una transferencia (`transfer-{id}`). Cada vez que el backend guarda
- * puntos GPS, los emite a la room, eliminando el polling del mapa web.
+ * Los clientes se autentican con su JWT en el handshake. Cada conexión se
+ * une automáticamente a su room personal (`user-{id}`, para notificaciones)
+ * y puede suscribirse a rooms de transferencias (`transfer-{id}`) para
+ * recibir el seguimiento GPS en vivo sin polling.
  */
 @WebSocketGateway({
   namespace: '/tracking',
@@ -40,7 +42,13 @@ export class TrackingGateway implements OnGatewayConnection {
         throw new Error('Token no proporcionado');
       }
 
-      client.data.user = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token);
+      client.data.user = payload;
+
+      // Room personal para notificaciones dirigidas al usuario
+      if (payload.sub) {
+        client.join(`user-${payload.sub}`);
+      }
     } catch {
       this.logger.warn(`Conexión WS rechazada (token inválido): ${client.id}`);
       client.disconnect(true);
@@ -79,6 +87,34 @@ export class TrackingGateway implements OnGatewayConnection {
         accuracy: p.accuracy != null ? Number(p.accuracy) : null,
         recordedAt: p.recordedAt,
       })),
+    });
+  }
+
+  /** Emite un cambio de estado de la transferencia (ej. llegada por geocerca) */
+  emitTransferEvent(
+    transferId: number,
+    event: { type: string; status: string },
+  ): void {
+    if (!this.server) return;
+
+    this.server.to(`transfer-${transferId}`).emit('transfer:status', {
+      transferId,
+      ...event,
+    });
+  }
+
+  /** Empuja una notificación a la room personal del usuario */
+  emitNotification(userId: number, notification: Notification): void {
+    if (!this.server) return;
+
+    this.server.to(`user-${userId}`).emit('notification:new', {
+      id: notification.id,
+      type: notification.type,
+      priority: notification.priority,
+      title: notification.title,
+      message: notification.message,
+      transferId: notification.transferId,
+      sentAt: notification.sentAt,
     });
   }
 }

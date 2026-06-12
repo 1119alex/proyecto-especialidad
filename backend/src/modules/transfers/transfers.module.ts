@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransfersService } from './transfers.service';
 import { TransfersController } from './transfers.controller';
-import { TrackingGateway } from './tracking.gateway';
-import { AuthModule } from '../auth/auth.module';
+import { RealtimeModule } from '../realtime/realtime.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
@@ -21,11 +21,11 @@ import { InventoryMovement } from '../../entities/inventory-movement.entity';
       Inventory,
       InventoryMovement,
     ]),
-    // JwtModule (exportado por AuthModule) para autenticar el gateway WS
-    AuthModule,
+    RealtimeModule,
+    NotificationsModule,
   ],
   controllers: [TransfersController],
-  providers: [TransfersService, TrackingGateway],
+  providers: [TransfersService],
   exports: [TransfersService],
 })
 export class TransfersModule {}

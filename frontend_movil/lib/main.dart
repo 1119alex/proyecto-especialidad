@@ -1,15 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:logger/logger.dart';
 import 'config/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-// import 'services/notifications/fcm_service_provider.dart';
+import 'services/api/api_client_provider.dart';
+import 'services/notifications/fcm_service_provider.dart';
+import 'shared/providers/auth_provider.dart';
+
+/// Disponible solo si el proyecto tiene la configuración nativa de Firebase
+/// (android/app/google-services.json descargado de Firebase Console).
+bool firebaseAvailable = false;
+
+/// Para mostrar notificaciones en primer plano desde fuera de un Scaffold
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar Firebase
-  // await Firebase.initializeApp();
+  // Inicializar Firebase: si falta la configuración nativa, la app sigue
+  // funcionando sin notificaciones push
+  try {
+    await Firebase.initializeApp();
+    firebaseAvailable = true;
+  } catch (e) {
+    Logger().w(
+      'Firebase no disponible (agregar google-services.json para push): $e',
+    );
+  }
 
   runApp(const ProviderScope(child: MainApp()));
 }
@@ -22,42 +41,83 @@ class MainApp extends ConsumerStatefulWidget {
 }
 
 class _MainAppState extends ConsumerState<MainApp> {
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _initializeApp();
-  // }
+  bool _fcmConfigured = false;
 
-  // Future<void> _initializeApp() async {
-  //   // Inicializar FCM
-  //   final fcmService = ref.read(fcmServiceProvider);
-  //   await fcmService.initialize();
+  /// Inicializa FCM y registra el token del dispositivo en el backend.
+  /// Se ejecuta cuando el usuario inicia sesión.
+  Future<void> _setupPushNotifications() async {
+    if (!firebaseAvailable || _fcmConfigured) return;
+    _fcmConfigured = true;
 
-  //   // Configurar handlers de notificaciones
-  //   fcmService.setupNotificationHandlers(
-  //     onMessageReceived: (message) {
-  //       // Mostrar notificación local cuando la app está en primer plano
-  //       if (mounted) {
-  //         fcmService.showLocalNotification(context, message);
-  //       }
-  //     },
-  //     onNotificationTapped: (message) {
-  //       // Navegar a la pantalla correspondiente según el tipo de notificación
-  //       final data = fcmService.parseNotificationData(message);
-  //       if (data.transferId != null) {
-  //         ref.read(routerProvider).go('/transfers/${data.transferId}');
-  //       }
-  //     },
-  //   );
-  // }
+    try {
+      final fcmService = ref.read(fcmServiceProvider);
+      final token = await fcmService.initialize();
+
+      if (token != null) {
+        // Asociar el token del dispositivo al usuario autenticado
+        await ref.read(apiClientProvider).post(
+          '/notifications/fcm-token',
+          data: {'token': token},
+        );
+      }
+
+      fcmService.setupNotificationHandlers(
+        onMessageReceived: (message) {
+          // App en primer plano: mostrar como snackbar
+          final notification = message.notification;
+          if (notification == null) return;
+
+          scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title ?? 'Notificación',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (notification.body != null) ...[
+                    const SizedBox(height: 4),
+                    Text(notification.body!),
+                  ],
+                ],
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        },
+        onNotificationTapped: (message) {
+          // Navegar al detalle de la transferencia referida
+          final data = ref.read(fcmServiceProvider).parseNotificationData(
+                message,
+              );
+          if (data.transferId != null) {
+            ref.read(routerProvider).push('/transfers/${data.transferId}');
+          }
+        },
+      );
+    } catch (e) {
+      _fcmConfigured = false; // permitir reintento en el siguiente login
+      Logger().w('No se pudo configurar FCM: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
+    // Registrar el token FCM cuando hay sesión activa
+    ref.listen(authProvider, (previous, next) {
+      if (next.value?.isAuthenticated == true) {
+        _setupPushNotifications();
+      }
+    });
+
     return MaterialApp.router(
       title: 'LogiTrack',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
