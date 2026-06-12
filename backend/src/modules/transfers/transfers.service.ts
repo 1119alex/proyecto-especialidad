@@ -19,6 +19,8 @@ import { User } from '../../entities/user.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { ReceivedQuantityDto } from './dto/complete-transfer.dto';
+import { GPSTrackingPointDto } from './dto/gps-tracking-batch.dto';
+import { TrackingGateway } from './tracking.gateway';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { MovementType } from '../../common/enums/inventory-movement.enum';
@@ -41,6 +43,7 @@ export class TransfersService {
     private readonly inventoryRepository: Repository<Inventory>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly trackingGateway: TrackingGateway,
   ) {}
 
   async create(
@@ -845,7 +848,51 @@ export class TransfersService {
       recordedAt: new Date(),
     });
 
-    return this.trackingLogRepository.save(tracking);
+    const saved = await this.trackingLogRepository.save(tracking);
+
+    // Push en tiempo real al mapa de seguimiento
+    this.trackingGateway.emitTrackingPoints(transferId, [saved]);
+
+    return saved;
+  }
+
+  /**
+   * Registra un lote de puntos GPS en una sola operación. Los puntos
+   * conservan el timestamp de captura del dispositivo (recordedAt), lo que
+   * permite a la app móvil acumular posiciones sin conexión y sincronizarlas
+   * al recuperar señal.
+   */
+  async addGPSTrackingBatch(
+    transferId: number,
+    points: GPSTrackingPointDto[],
+    user: User,
+  ): Promise<{ saved: number; trackingLogs: TrackingLog[] }> {
+    const transfer = await this.findOne(transferId);
+
+    this.assertAssignedDriver(user, transfer);
+
+    if (transfer.status !== TransferStatus.EN_TRANSITO) {
+      throw new BadRequestException(
+        'Solo se puede registrar ubicación GPS durante el tránsito',
+      );
+    }
+
+    const logs = points.map((point) =>
+      this.trackingLogRepository.create({
+        transferId,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        speed: point.speed,
+        accuracy: point.accuracy,
+        recordedAt: point.recordedAt ? new Date(point.recordedAt) : new Date(),
+      }),
+    );
+
+    const saved = await this.trackingLogRepository.save(logs);
+
+    this.trackingGateway.emitTrackingPoints(transferId, saved);
+
+    return { saved: saved.length, trackingLogs: saved };
   }
 
   async getTrackingHistory(transferId: number): Promise<TrackingLog[]> {

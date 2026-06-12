@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { io, Socket } from 'socket.io-client';
 import { transferService } from '../../services/transferService';
 import { Transfer, TrackingLog, TransferStatus } from '../../types';
 import { TrackingMap } from './TrackingMap';
+
+// URL raíz del servidor (sin el prefijo /api/v1) para el WebSocket
+const SOCKET_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'http://localhost:3000'
+).replace(/\/api\/v1\/?$/, '');
 
 interface TransferDetailProps {
   transfer: Transfer;
@@ -48,20 +54,48 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
     setReceivedQuantities(initialQuantities);
   }, [transfer]);
 
-  // Auto-refresh tracking for active transfers
+  // Seguimiento en tiempo real vía WebSocket (sin polling): el backend
+  // emite los puntos GPS a la room de la transferencia al guardarlos
   useEffect(() => {
-    if (transfer.status === 'EN_TRANSITO') {
-      const interval = setInterval(async () => {
-        try {
-          const tracking = await transferService.getTrackingHistory(transfer.id);
-          setTrackingHistory(tracking);
-        } catch (err) {
-          console.error('Error refreshing tracking:', err);
-        }
-      }, 30000); // Refresh every 30 seconds
+    if (transfer.status !== 'EN_TRANSITO') return;
 
-      return () => clearInterval(interval);
-    }
+    const socket: Socket = io(`${SOCKET_BASE_URL}/tracking`, {
+      auth: { token: localStorage.getItem('token') },
+      transports: ['websocket', 'polling'],
+    });
+
+    socket.on('connect', () => {
+      socket.emit('join-transfer', transfer.id);
+    });
+
+    socket.on(
+      'tracking:points',
+      (payload: { transferId: number; points: TrackingLog[] }) => {
+        if (payload.transferId !== transfer.id) return;
+        setTrackingHistory((prev) => {
+          const known = new Set(prev.map((p) => p.id));
+          const newPoints = payload.points.filter((p) => !known.has(p.id));
+          return newPoints.length > 0 ? [...prev, ...newPoints] : prev;
+        });
+      }
+    );
+
+    // Respaldo: si el socket no está conectado, refrescar por REST cada 60s
+    const fallback = setInterval(async () => {
+      if (socket.connected) return;
+      try {
+        const tracking = await transferService.getTrackingHistory(transfer.id);
+        setTrackingHistory(tracking);
+      } catch (err) {
+        console.error('Error refreshing tracking:', err);
+      }
+    }, 60000);
+
+    return () => {
+      socket.emit('leave-transfer', transfer.id);
+      socket.disconnect();
+      clearInterval(fallback);
+    };
   }, [transfer.id, transfer.status]);
 
   const refreshTransfer = async () => {

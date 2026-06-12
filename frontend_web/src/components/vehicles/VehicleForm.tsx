@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { vehicleService } from '../../services/vehicleService';
-import { Vehicle, CreateVehicleDto, VehicleStatus } from '../../types';
+import { Vehicle, CreateVehicleDto } from '../../types';
 
 interface VehicleFormProps {
   vehicle: Vehicle | null;

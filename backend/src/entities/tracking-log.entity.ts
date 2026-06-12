@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Transfer } from './transfer.entity';
 
 @Entity('tracking_logs')
+@Index(['transferId', 'recordedAt'])
 export class TrackingLog {
   @PrimaryGeneratedColumn()
   id: number;

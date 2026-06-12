@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -39,7 +39,7 @@ interface TrackingPoint {
   longitude: number;
   speed?: number;
   accuracy?: number;
-  recordedAt: string;
+  recordedAt: string | Date;
 }
 
 interface TrackingMapProps {
@@ -110,7 +110,7 @@ export function TrackingMap({ trackingData }: TrackingMapProps) {
   }
 
   // Formatear fecha/hora
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateString: string | Date) => {
     const date = new Date(dateString);
     return date.toLocaleString('es-ES', {
       day: '2-digit',

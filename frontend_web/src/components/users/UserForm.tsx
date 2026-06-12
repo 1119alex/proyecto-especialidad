@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { userService } from '../../services/userService';
-import { User, CreateUserDto, UserRole } from '../../types';
+import { User, CreateUserDto } from '../../types';
 
 interface UserFormProps {
   user: User | null;

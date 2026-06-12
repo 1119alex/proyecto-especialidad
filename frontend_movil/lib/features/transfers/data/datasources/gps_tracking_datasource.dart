@@ -37,6 +37,28 @@ class GPSTrackingDatasource {
     }
   }
 
+  /// Envía un lote de puntos GPS acumulados (cada punto conserva su
+  /// timestamp de captura, lo que permite sincronizar tras estar offline)
+  Future<void> addGPSTrackingBatch({
+    required int transferId,
+    required List<Map<String, dynamic>> points,
+  }) async {
+    try {
+      await _apiClient.post(
+        '/transfers/$transferId/tracking/batch',
+        data: {'points': points},
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        throw Exception(
+            e.response?.data['message'] ?? 'Error al enviar lote GPS');
+      }
+      throw Exception('Error al enviar lote GPS: ${e.message}');
+    } catch (e) {
+      throw Exception('Error inesperado: $e');
+    }
+  }
+
   /// Obtiene el historial de tracking de una transferencia
   Future<List<Map<String, dynamic>>> getTrackingHistory(int transferId) async {
     try {

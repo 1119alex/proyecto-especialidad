@@ -76,6 +76,31 @@ class AppDatabase extends _$AppDatabase {
     return (select(trackingLogs)..where((t) => t.needsSync.equals(true))).get();
   }
 
+  /// Obtener logs pendientes de una transferencia (ordenados por captura)
+  Future<List<TrackingLog>> getPendingTrackingLogsByTransfer(int transferId) {
+    return (select(trackingLogs)
+          ..where(
+            (t) => t.transferId.equals(transferId) & t.needsSync.equals(true),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.timestamp)]))
+        .get();
+  }
+
+  /// Contar logs pendientes de una transferencia
+  Future<int> countPendingTrackingLogs(int transferId) async {
+    final rows = await (select(trackingLogs)
+          ..where(
+            (t) => t.transferId.equals(transferId) & t.needsSync.equals(true),
+          ))
+        .get();
+    return rows.length;
+  }
+
+  /// Eliminar logs ya sincronizados con el backend
+  Future<void> deleteTrackingLogsByIds(List<int> ids) {
+    return (delete(trackingLogs)..where((t) => t.id.isIn(ids))).go();
+  }
+
   /// Insertar log de tracking
   Future<int> insertTrackingLog(TrackingLogsCompanion log) {
     return into(trackingLogs).insert(log);

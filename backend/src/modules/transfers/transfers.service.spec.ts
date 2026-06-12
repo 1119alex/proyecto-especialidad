@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { TransfersService } from './transfers.service';
+import { TrackingGateway } from './tracking.gateway';
 import { Transfer } from '../../entities/transfer.entity';
 import { TransferDetail } from '../../entities/transfer-detail.entity';
 import { TrackingLog } from '../../entities/tracking-log.entity';
@@ -111,6 +112,10 @@ describe('TransfersService', () => {
     ),
   };
 
+  const mockTrackingGateway = {
+    emitTrackingPoints: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -139,6 +144,7 @@ describe('TransfersService', () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: TrackingGateway, useValue: mockTrackingGateway },
       ],
     }).compile();
 
@@ -520,7 +526,7 @@ describe('TransfersService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('registra la coordenada durante el tránsito', async () => {
+    it('registra la coordenada durante el tránsito y la emite por WebSocket', async () => {
       mockTransferRepository.findOne.mockResolvedValue(
         makeTransfer({ status: TransferStatus.EN_TRANSITO }),
       );
@@ -533,6 +539,51 @@ describe('TransfersService', () => {
 
       expect(result.id).toBe(99);
       expect(mockTrackingLogRepository.save).toHaveBeenCalled();
+      expect(mockTrackingGateway.emitTrackingPoints).toHaveBeenCalledWith(1, [
+        result,
+      ]);
+    });
+  });
+
+  describe('addGPSTrackingBatch', () => {
+    it('rechaza el lote fuera de tránsito', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(
+        makeTransfer({ status: TransferStatus.LLEGADA_DESTINO }),
+      );
+
+      await expect(
+        service.addGPSTrackingBatch(
+          1,
+          [{ latitude: -16.5, longitude: -68.15 }],
+          makeDriver(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('guarda el lote conservando el timestamp del dispositivo y emite por WebSocket', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(
+        makeTransfer({ status: TransferStatus.EN_TRANSITO }),
+      );
+      mockTrackingLogRepository.save.mockImplementation(
+        async (logs: any) => logs,
+      );
+
+      const deviceTime = '2026-06-12T10:00:00.000Z';
+      const result = await service.addGPSTrackingBatch(
+        1,
+        [
+          { latitude: -16.5, longitude: -68.15, recordedAt: deviceTime },
+          { latitude: -16.51, longitude: -68.16 },
+        ],
+        makeDriver(),
+      );
+
+      expect(result.saved).toBe(2);
+      expect(result.trackingLogs[0].recordedAt).toEqual(new Date(deviceTime));
+      expect(mockTrackingGateway.emitTrackingPoints).toHaveBeenCalledWith(
+        1,
+        result.trackingLogs,
+      );
     });
   });
 });

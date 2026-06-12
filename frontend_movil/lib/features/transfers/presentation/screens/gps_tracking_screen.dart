@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../providers/gps_tracking_provider.dart';
+import '../../../../services/gps/tracking_buffer_service.dart';
 import '../providers/transfers_provider.dart';
 
 class GPSTrackingScreen extends ConsumerStatefulWidget {
@@ -24,23 +24,29 @@ class GPSTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
-  Timer? _locationTimer;
+  late final TrackingBufferService _trackingService;
+  Timer? _elapsedTimer;
   Position? _currentPosition;
   double _currentSpeed = 0.0;
   int _elapsedMinutes = 0;
   double _totalDistance = 0.0;
-  String _trackingStatus = 'Activo';
+  final String _trackingStatus = 'Activo';
   bool _isTracking = false;
 
   @override
   void initState() {
     super.initState();
+    _trackingService = ref.read(trackingBufferServiceProvider);
     _initializeTracking();
   }
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    _elapsedTimer?.cancel();
+    // No se detiene el tracking: sigue activo aunque se salga de la pantalla
+    // (el servicio captura por distancia y sincroniza por lotes). Solo se
+    // desengancha la UI; el tracking termina al confirmar la llegada.
+    _trackingService.onPosition = null;
     super.dispose();
   }
 
@@ -61,83 +67,47 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
     }
 
     // Start tracking
-    _startTracking();
+    await _startTracking();
   }
 
-  void _startTracking() {
+  Future<void> _startTracking() async {
     setState(() {
       _isTracking = true;
     });
 
-    // Update location every 30 seconds
-    _locationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _updateLocation();
-    });
-
     // Update elapsed time every minute
-    Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_isTracking) {
+    _elapsedTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (_isTracking && mounted) {
         setState(() {
           _elapsedMinutes++;
         });
       }
     });
 
-    // Get initial position
-    _updateLocation();
+    // Captura adaptativa por distancia + buffer offline + envío por lotes
+    await _trackingService.start(
+      widget.transferId,
+      onPosition: _onPositionUpdate,
+    );
   }
 
-  Future<void> _updateLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+  void _onPositionUpdate(Position position) {
+    if (!mounted) return;
 
-      setState(() {
-        if (_currentPosition != null) {
-          // Calculate distance
-          final distance = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            position.latitude,
-            position.longitude,
-          );
-          _totalDistance += distance / 1000; // Convert to km
-        }
-
-        _currentPosition = position;
-        _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
-      });
-
-      // Enviar datos GPS al backend
-      try {
-        await ref
-            .read(gPSTrackerProvider.notifier)
-            .sendLocation(
-              transferId: widget.transferId,
-              latitude: position.latitude,
-              longitude: position.longitude,
-              speed: _currentSpeed,
-              accuracy: position.accuracy,
-            );
-        debugPrint(
-          'GPS data sent: lat=${position.latitude}, lng=${position.longitude}',
+    setState(() {
+      if (_currentPosition != null) {
+        final distance = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          position.latitude,
+          position.longitude,
         );
-      } catch (e) {
-        // No interrumpir el tracking si falla el envío
-        debugPrint('Error sending GPS data: $e');
+        _totalDistance += distance / 1000; // Convert to km
       }
-    } catch (e) {
-      debugPrint('Error getting location: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al obtener ubicación: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+
+      _currentPosition = position;
+      _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
+    });
   }
 
   void _showPermissionDeniedDialog() {
@@ -162,8 +132,6 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   }
 
   Future<void> _confirmArrival() async {
-    debugPrint('🔔🔔🔔 INICIO _confirmArrival() 🔔🔔🔔');
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -171,17 +139,11 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         content: const Text('¿Has llegado al destino?'),
         actions: [
           TextButton(
-            onPressed: () {
-              debugPrint('❌ Usuario presionó CANCELAR');
-              Navigator.of(context).pop(false);
-            },
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () {
-              debugPrint('✅ Usuario presionó CONFIRMAR');
-              Navigator.of(context).pop(true);
-            },
+            onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
             ),
@@ -191,76 +153,59 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
       ),
     );
 
-    debugPrint('🔔 Dialog cerrado - confirmed: $confirmed');
+    if (confirmed != true) return;
 
-    if (confirmed == true) {
-      debugPrint('🚀🚀🚀 INICIANDO PROCESO DE CONFIRMACIÓN 🚀🚀🚀');
+    try {
+      // Detener el tracking enviando los puntos pendientes antes de cerrar
+      setState(() {
+        _isTracking = false;
+      });
+      await _trackingService.stop();
 
-      // Actualizar estado a LLEGADA_DESTINO
-      try {
-        debugPrint(
-          '🚀 Confirmando llegada al destino - Transfer ID: ${widget.transferId}',
-        );
+      final datasource = ref.read(transfersRemoteDatasourceProvider);
+      await datasource.arriveDestination(widget.transferId);
 
-        // Llamar directamente al datasource
-        final datasource = ref.read(transfersRemoteDatasourceProvider);
-        debugPrint('🚀 Datasource obtenido, llamando arriveDestination...');
+      if (!mounted) return;
 
-        final result = await datasource.arriveDestination(widget.transferId);
+      // Invalidar providers para refrescar
+      ref.invalidate(transfersProvider);
+      ref.invalidate(transferDetailProvider(widget.transferId));
 
-        debugPrint('✅✅✅ RESPUESTA RECIBIDA DEL BACKEND ✅✅✅');
-        debugPrint('✅ Transfer Code: ${result.transferCode}');
-        debugPrint('✅ Nuevo estado: ${result.status}');
-
-        if (!mounted) return;
-
-        // Invalidar providers para refrescar
-        ref.invalidate(transfersProvider);
-        ref.invalidate(transferDetailProvider(widget.transferId));
-
-        // Mostrar mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '¡Llegada confirmada! Ahora puedes escanear el QR en el almacén destino.',
-                    style: TextStyle(fontSize: 15),
-                  ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '¡Llegada confirmada! Ahora puedes escanear el QR en el almacén destino.',
+                  style: TextStyle(fontSize: 15),
                 ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+
+      // Volver a la pantalla anterior después de un delay
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al confirmar llegada: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
-
-        // Volver a la pantalla anterior después de un delay
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        });
-      } catch (e, stackTrace) {
-        debugPrint('❌❌❌ ERROR COMPLETO ❌❌❌');
-        debugPrint('❌ Error: $e');
-        debugPrint('❌ StackTrace: $stackTrace');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error al confirmar llegada: ${e.toString()}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
       }
-    } else {
-      debugPrint('❌ Usuario canceló la confirmación');
     }
   }
 
@@ -551,87 +496,11 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
 
                     const SizedBox(height: 16),
 
-                    // NEW BUTTON: Notificar Llegada
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          print(
-                            '🟢🟢🟢 BOTÓN NOTIFICAR LLEGADA PRESIONADO 🟢🟢🟢',
-                          );
-
-                          try {
-                            print('🟢 Obteniendo datasource...');
-                            final datasource = ref.read(
-                              transfersRemoteDatasourceProvider,
-                            );
-
-                            print(
-                              '🟢 Llamando arriveDestination para transfer ${widget.transferId}',
-                            );
-                            final result = await datasource.arriveDestination(
-                              widget.transferId,
-                            );
-
-                            print('🟢 ✅ ÉXITO! Nuevo estado: ${result.status}');
-
-                            if (!mounted) return;
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '✅ Estado cambiado a: ${result.status}',
-                                ),
-                                backgroundColor: Colors.green,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-
-                            // Refrescar providers
-                            ref.invalidate(transfersProvider);
-                          } catch (e) {
-                            print('🟢 ❌ ERROR: $e');
-
-                            if (!mounted) return;
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('❌ Error: $e'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.notifications_active, size: 24),
-                        label: const Text(
-                          'Notificar Llegada',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFBBF24),
-                          foregroundColor: const Color(0xFF1E293B),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Original Confirm arrival button
+                    // Confirm arrival button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          debugPrint('🔴🔴🔴 BOTÓN PRESIONADO - INICIO 🔴🔴🔴');
-                          _confirmArrival();
-                        },
+                        onPressed: _confirmArrival,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF10B981),
                           padding: const EdgeInsets.symmetric(vertical: 16),

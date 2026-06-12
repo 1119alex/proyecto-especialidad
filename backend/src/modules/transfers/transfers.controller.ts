@@ -15,6 +15,7 @@ import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { AssignTransferDto } from './dto/assign-transfer.dto';
 import { VerifyQRDto } from './dto/verify-qr.dto';
 import { GPSTrackingDto } from './dto/gps-tracking.dto';
+import { GPSTrackingBatchDto } from './dto/gps-tracking-batch.dto';
 import { CompleteTransferDto } from './dto/complete-transfer.dto';
 import { CancelTransferDto } from './dto/cancel-transfer.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -161,6 +162,16 @@ export class TransfersController {
     @GetUser() user: User,
   ) {
     return this.transfersService.addGPSTracking(id, trackingDto, user);
+  }
+
+  @Post(':id/tracking/batch')
+  @Roles(UserRole.TRANSPORTISTA)
+  addGPSTrackingBatch(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() batchDto: GPSTrackingBatchDto,
+    @GetUser() user: User,
+  ) {
+    return this.transfersService.addGPSTrackingBatch(id, batchDto.points, user);
   }
 
   @Get(':id/tracking')
