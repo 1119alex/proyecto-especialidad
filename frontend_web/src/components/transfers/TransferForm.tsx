@@ -169,33 +169,33 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white mb-10">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-10 mx-auto p-5 border border-edge w-full max-w-4xl shadow-lg rounded-lg bg-surface mb-10">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-bold text-gray-900">
+          <h3 className="text-2xl font-bold text-ink">
             {transfer ? 'Editar Transferencia' : 'Nueva Transferencia'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-ink-muted hover:text-ink text-2xl font-bold"
           >
             ×
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Warehouses Section */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="text-lg font-semibold mb-3 text-gray-700">Almacenes</h4>
+          <div className="bg-app border border-edge p-4 rounded-lg">
+            <h4 className="text-lg font-semibold mb-3 text-ink-soft">Almacenes</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="originWarehouseId" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="originWarehouseId" className="block text-sm font-medium text-ink-soft mb-1">
                   Almacén de Origen *
                 </label>
                 <select
@@ -204,7 +204,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   value={formData.originWarehouseId}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 >
                   <option value={0}>Seleccionar almacén...</option>
                   {warehouses.map(wh => (
@@ -216,7 +216,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
               </div>
 
               <div>
-                <label htmlFor="destinationWarehouseId" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="destinationWarehouseId" className="block text-sm font-medium text-ink-soft mb-1">
                   Almacén de Destino *
                 </label>
                 <select
@@ -225,7 +225,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   value={formData.destinationWarehouseId}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 >
                   <option value={0}>Seleccionar almacén...</option>
                   {warehouses.map(wh => (
@@ -239,11 +239,11 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
           </div>
 
           {/* Vehicle and Driver Section */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="text-lg font-semibold mb-3 text-gray-700">Asignación (Opcional)</h4>
+          <div className="bg-app border border-edge p-4 rounded-lg">
+            <h4 className="text-lg font-semibold mb-3 text-ink-soft">Asignación (Opcional)</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="vehicleId" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="vehicleId" className="block text-sm font-medium text-ink-soft mb-1">
                   Vehículo
                 </label>
                 <select
@@ -251,7 +251,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   name="vehicleId"
                   value={formData.vehicleId || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 >
                   <option value="">Sin asignar</option>
                   {vehicles.map(v => (
@@ -263,7 +263,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
               </div>
 
               <div>
-                <label htmlFor="driverId" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="driverId" className="block text-sm font-medium text-ink-soft mb-1">
                   Conductor
                 </label>
                 <select
@@ -271,7 +271,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   name="driverId"
                   value={formData.driverId || ''}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 >
                   <option value="">Sin asignar</option>
                   {drivers.map(d => (
@@ -285,11 +285,11 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
           </div>
 
           {/* Schedule Section */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="text-lg font-semibold mb-3 text-gray-700">Programación (Opcional)</h4>
+          <div className="bg-app border border-edge p-4 rounded-lg">
+            <h4 className="text-lg font-semibold mb-3 text-ink-soft">Programación (Opcional)</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="estimatedDepartureTime" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="estimatedDepartureTime" className="block text-sm font-medium text-ink-soft mb-1">
                   Salida Estimada
                 </label>
                 <input
@@ -298,12 +298,12 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   name="estimatedDepartureTime"
                   value={formData.estimatedDepartureTime}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 />
               </div>
 
               <div>
-                <label htmlFor="estimatedArrivalTime" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="estimatedArrivalTime" className="block text-sm font-medium text-ink-soft mb-1">
                   Llegada Estimada
                 </label>
                 <input
@@ -312,42 +312,42 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                   name="estimatedArrivalTime"
                   value={formData.estimatedArrivalTime}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 />
               </div>
             </div>
           </div>
 
           {/* Products Section */}
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-app border border-edge p-4 rounded-lg">
             <div className="flex justify-between items-center mb-3">
-              <h4 className="text-lg font-semibold text-gray-700">Productos *</h4>
+              <h4 className="text-lg font-semibold text-ink-soft">Productos *</h4>
               <button
                 type="button"
                 onClick={handleAddProduct}
-                className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 transition text-sm"
+                className="bg-success text-white px-3 py-1 rounded-lg hover:opacity-90 transition text-sm"
               >
                 + Agregar Producto
               </button>
             </div>
 
             {formData.details.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-ink-muted">
                 No hay productos agregados. Haz clic en "Agregar Producto" para comenzar.
               </div>
             ) : (
               <div className="space-y-3">
                 {formData.details.map((detail, index) => (
-                  <div key={index} className="flex gap-3 items-end bg-white p-3 rounded border border-gray-200">
+                  <div key={index} className="flex gap-3 items-end bg-surface p-3 rounded border border-edge">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-ink-soft mb-1">
                         Producto
                       </label>
                       <select
                         value={detail.productId}
                         onChange={(e) => handleProductChange(index, 'productId', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                       >
                         <option value={0}>Seleccionar producto...</option>
                         {products.map(p => (
@@ -359,7 +359,7 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                     </div>
 
                     <div className="w-32">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-ink-soft mb-1">
                         Cantidad
                       </label>
                       <input
@@ -368,14 +368,14 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
                         onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
                         required
                         min="1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                       />
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleRemoveProduct(index)}
-                      className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                      className="px-3 py-2 bg-danger text-white rounded-lg hover:opacity-90 transition"
                     >
                       Eliminar
                     </button>
@@ -385,8 +385,8 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
             )}
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-primary-soft border border-primary/20 rounded-lg p-3">
+            <p className="text-sm text-primary">
               <strong>Nota:</strong> Una vez creada la transferencia, puedes asignar vehículo y conductor desde la vista de detalle si no los asignas ahora.
             </p>
           </div>
@@ -396,14 +396,14 @@ const TransferForm: React.FC<TransferFormProps> = ({ transfer, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="px-4 py-2 border border-edge rounded-lg text-ink-soft hover:bg-app transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 transition disabled:bg-gray-400"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition disabled:opacity-50"
             >
               {loading ? 'Guardando...' : transfer ? 'Actualizar' : 'Crear Transferencia'}
             </button>

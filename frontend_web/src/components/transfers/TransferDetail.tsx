@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { transferService } from '../../services/transferService';
-import { Transfer, TrackingLog, TransferStatus } from '../../types';
+import { Transfer, TrackingLog } from '../../types';
 import { TrackingMap } from './TrackingMap';
+import { StatusBadge } from '../ui/StatusBadge';
 
 // URL raíz del servidor (sin el prefijo /api/v1) para el WebSocket
 const SOCKET_BASE_URL = (
@@ -153,90 +154,58 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
     }
   };
 
-  const getStatusBadgeClass = (status: TransferStatus): string => {
-    const statusClasses: Record<TransferStatus, string> = {
-      PENDIENTE: 'bg-gray-100 text-gray-800',
-      ASIGNADA: 'bg-blue-100 text-blue-800',
-      EN_PREPARACION: 'bg-yellow-100 text-yellow-800',
-      LISTA_DESPACHO: 'bg-orange-100 text-orange-800',
-      EN_TRANSITO: 'bg-purple-100 text-purple-800',
-      LLEGADA_DESTINO: 'bg-indigo-100 text-indigo-800',
-      COMPLETADA: 'bg-green-100 text-green-800',
-      COMPLETADA_CON_DISCREPANCIA: 'bg-amber-100 text-amber-800',
-      CANCELADA: 'bg-red-100 text-red-800',
-    };
-    return statusClasses[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusLabel = (status: TransferStatus): string => {
-    const labels: Record<TransferStatus, string> = {
-      PENDIENTE: 'Pendiente',
-      ASIGNADA: 'Asignada',
-      EN_PREPARACION: 'En Preparación',
-      LISTA_DESPACHO: 'Lista para Despacho',
-      EN_TRANSITO: 'En Tránsito',
-      LLEGADA_DESTINO: 'Llegada a Destino',
-      COMPLETADA: 'Completada',
-      COMPLETADA_CON_DISCREPANCIA: 'Completada con Discrepancia',
-      CANCELADA: 'Cancelada',
-    };
-    return labels[status] || status;
-  };
-
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white mb-10">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-10 mx-auto p-5 border border-edge w-full max-w-6xl shadow-lg rounded-lg bg-surface mb-10">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900">
+            <h3 className="text-2xl font-bold text-ink">
               Detalle de Transferencia
             </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Código: <span className="font-semibold">{transfer.transferCode}</span>
+            <p className="text-sm text-ink-muted mt-1">
+              Código: <span className="font-semibold text-ink-soft">{transfer.transferCode}</span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-ink-muted hover:text-ink text-2xl font-bold"
           >
             ×
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         <div className="space-y-6">
           {/* Status and Basic Info */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-surface border border-edge rounded-lg p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Estado</p>
-                <span className={`mt-1 px-3 py-1 inline-flex text-sm font-semibold rounded-full ${getStatusBadgeClass(transfer.status)}`}>
-                  {getStatusLabel(transfer.status)}
-                </span>
+                <p className="text-sm text-ink-muted mb-1">Estado</p>
+                <StatusBadge status={transfer.status} />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Creado por</p>
-                <p className="font-medium">
+                <p className="text-sm text-ink-muted">Creado por</p>
+                <p className="font-medium text-ink">
                   {transfer.createdBy
                     ? `${transfer.createdBy.firstName} ${transfer.createdBy.lastName}`
                     : 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Fecha Creación</p>
-                <p className="font-medium">
+                <p className="text-sm text-ink-muted">Fecha Creación</p>
+                <p className="font-medium text-ink">
                   {new Date(transfer.createdAt).toLocaleString('es-BO')}
                 </p>
               </div>
               {transfer.completedAt && (
                 <div>
-                  <p className="text-sm text-gray-500">Fecha Completado</p>
-                  <p className="font-medium">
+                  <p className="text-sm text-ink-muted">Fecha Completado</p>
+                  <p className="font-medium text-ink">
                     {new Date(transfer.completedAt).toLocaleString('es-BO')}
                   </p>
                 </div>
@@ -246,25 +215,25 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
 
           {/* Route Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">Origen</h4>
-              <p className="font-medium">{transfer.originWarehouse?.name}</p>
-              <p className="text-sm text-gray-600">{transfer.originWarehouse?.address}</p>
-              <p className="text-sm text-gray-600">{transfer.originWarehouse?.city}</p>
+            <div className="bg-primary-soft border border-primary/20 rounded-lg p-4">
+              <h4 className="font-semibold text-primary mb-2">Origen</h4>
+              <p className="font-medium text-ink">{transfer.originWarehouse?.name}</p>
+              <p className="text-sm text-ink-soft">{transfer.originWarehouse?.address}</p>
+              <p className="text-sm text-ink-soft">{transfer.originWarehouse?.city}</p>
               {transfer.qrVerifiedAtOrigin && (
-                <p className="text-xs text-green-600 mt-2">
+                <p className="text-xs text-success mt-2">
                   ✓ QR Verificado: {new Date(transfer.qrVerifiedAtOrigin).toLocaleString('es-BO')}
                 </p>
               )}
             </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-green-900 mb-2">Destino</h4>
-              <p className="font-medium">{transfer.destinationWarehouse?.name}</p>
-              <p className="text-sm text-gray-600">{transfer.destinationWarehouse?.address}</p>
-              <p className="text-sm text-gray-600">{transfer.destinationWarehouse?.city}</p>
+            <div className="bg-success-soft border border-success/20 rounded-lg p-4">
+              <h4 className="font-semibold text-success mb-2">Destino</h4>
+              <p className="font-medium text-ink">{transfer.destinationWarehouse?.name}</p>
+              <p className="text-sm text-ink-soft">{transfer.destinationWarehouse?.address}</p>
+              <p className="text-sm text-ink-soft">{transfer.destinationWarehouse?.city}</p>
               {transfer.qrVerifiedAtDestination && (
-                <p className="text-xs text-green-600 mt-2">
+                <p className="text-xs text-success mt-2">
                   ✓ QR Verificado: {new Date(transfer.qrVerifiedAtDestination).toLocaleString('es-BO')}
                 </p>
               )}
@@ -273,60 +242,60 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
 
           {/* Vehicle and Driver Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">Vehículo</h4>
+            <div className="bg-app border border-edge rounded-lg p-4">
+              <h4 className="font-semibold text-ink mb-2">Vehículo</h4>
               {transfer.vehicle ? (
                 <>
-                  <p className="font-medium">{transfer.vehicle.licensePlate}</p>
-                  <p className="text-sm text-gray-600">{transfer.vehicle.model}</p>
-                  <p className="text-sm text-gray-600">Capacidad: {transfer.vehicle.capacity} kg</p>
+                  <p className="font-medium text-ink">{transfer.vehicle.licensePlate}</p>
+                  <p className="text-sm text-ink-soft">{transfer.vehicle.model}</p>
+                  <p className="text-sm text-ink-soft">Capacidad: {transfer.vehicle.capacity} kg</p>
                 </>
               ) : (
-                <p className="text-gray-500 italic">No asignado</p>
+                <p className="text-ink-muted italic">No asignado</p>
               )}
             </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">Conductor</h4>
+            <div className="bg-app border border-edge rounded-lg p-4">
+              <h4 className="font-semibold text-ink mb-2">Conductor</h4>
               {transfer.driver ? (
                 <>
-                  <p className="font-medium">
+                  <p className="font-medium text-ink">
                     {transfer.driver.firstName} {transfer.driver.lastName}
                   </p>
-                  <p className="text-sm text-gray-600">{transfer.driver.phone}</p>
-                  <p className="text-sm text-gray-600">{transfer.driver.email}</p>
+                  <p className="text-sm text-ink-soft">{transfer.driver.phone}</p>
+                  <p className="text-sm text-ink-soft">{transfer.driver.email}</p>
                 </>
               ) : (
-                <p className="text-gray-500 italic">No asignado</p>
+                <p className="text-ink-muted italic">No asignado</p>
               )}
             </div>
           </div>
 
           {/* QR Code Section */}
           {qrData && (
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-3">Código QR</h4>
+            <div className="bg-surface border border-edge rounded-lg p-4">
+              <h4 className="font-semibold text-ink mb-3">Código QR</h4>
               <div className="flex items-center space-x-6">
-                <div className="bg-white p-2 border-2 border-gray-300 rounded">
+                <div className="bg-white p-2 border-2 border-edge rounded">
                   <img src={qrData.qrImage} alt="QR Code" className="w-48 h-48" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-2">
+                  <p className="text-sm text-ink-soft mb-2">
                     Escanea este código QR para verificar la transferencia en origen y destino.
                   </p>
-                  <p className="text-xs font-mono bg-gray-100 p-2 rounded border border-gray-300">
+                  <p className="text-xs font-mono bg-app text-ink-soft p-2 rounded border border-edge break-all">
                     {qrData.qrCode}
                   </p>
                   <div className="mt-3 space-y-1">
                     {transfer.qrVerifiedAtOrigin ? (
-                      <p className="text-sm text-green-600">✓ Verificado en origen</p>
+                      <p className="text-sm text-success">✓ Verificado en origen</p>
                     ) : (
-                      <p className="text-sm text-gray-500">○ Pendiente verificación en origen</p>
+                      <p className="text-sm text-ink-muted">○ Pendiente verificación en origen</p>
                     )}
                     {transfer.qrVerifiedAtDestination ? (
-                      <p className="text-sm text-green-600">✓ Verificado en destino</p>
+                      <p className="text-sm text-success">✓ Verificado en destino</p>
                     ) : (
-                      <p className="text-sm text-gray-500">○ Pendiente verificación en destino</p>
+                      <p className="text-sm text-ink-muted">○ Pendiente verificación en destino</p>
                     )}
                   </div>
                 </div>
@@ -335,10 +304,10 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           )}
 
           {/* GPS Tracking Map */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-surface border border-edge rounded-lg p-4">
+            <h4 className="font-semibold text-ink mb-4 flex items-center">
               <svg
-                className="w-5 h-5 mr-2 text-blue-600"
+                className="w-5 h-5 mr-2 text-primary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -357,8 +326,8 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
 
             {/* Mostrar mensaje de actualización automática si está en tránsito */}
             {transfer.status === 'EN_TRANSITO' && trackingHistory.length > 0 && (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded p-3">
-                <p className="text-sm text-green-800 flex items-center">
+              <div className="mt-4 bg-success-soft border border-success/20 rounded p-3">
+                <p className="text-sm text-success flex items-center">
                   <svg
                     className="w-4 h-4 mr-2 animate-pulse"
                     fill="currentColor"
@@ -377,48 +346,48 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           </div>
 
           {/* Products List */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-3">Productos</h4>
+          <div className="bg-surface border border-edge rounded-lg p-4">
+            <h4 className="font-semibold text-ink mb-3">Productos</h4>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-edge">
+                <thead className="bg-app">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                       SKU
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                       Producto
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                       Cant. Esperada
                     </th>
                     {transfer.status === 'LLEGADA_DESTINO' && (
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                         Cant. Recibida
                       </th>
                     )}
                     {(transfer.status === 'COMPLETADA' || transfer.status === 'COMPLETADA_CON_DISCREPANCIA') && (
                       <>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                           Cant. Recibida
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-ink-muted uppercase">
                           Estado
                         </th>
                       </>
                     )}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-edge">
                   {transfer.details.map(detail => (
                     <tr key={detail.id}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-ink-soft">
                         {detail.product?.sku}
                       </td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-ink">
                         {detail.product?.name}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-ink-soft">
                         {detail.quantityExpected}
                       </td>
                       {transfer.status === 'LLEGADA_DESTINO' && (
@@ -433,22 +402,22 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
                                 [detail.productId]: Number(e.target.value),
                               }))
                             }
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="w-20 px-2 py-1 bg-surface text-ink border border-edge rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                           />
                         </td>
                       )}
                       {(transfer.status === 'COMPLETADA' || transfer.status === 'COMPLETADA_CON_DISCREPANCIA') && (
                         <>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm">
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-ink-soft">
                             {detail.quantityReceived || detail.quantityExpected}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap">
                             {detail.hasDiscrepancy ? (
-                              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                              <span className="text-xs bg-danger-soft text-danger px-2 py-1 rounded">
                                 Discrepancia
                               </span>
                             ) : (
-                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              <span className="text-xs bg-success-soft text-success px-2 py-1 rounded">
                                 OK
                               </span>
                             )}
@@ -464,13 +433,13 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
 
           {/* Cancellation Section */}
           {transfer.status === 'CANCELADA' && transfer.cancellationReason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="font-semibold text-red-900 mb-2">Cancelación</h4>
-              <p className="text-sm text-red-800">
+            <div className="bg-danger-soft border border-danger/20 rounded-lg p-4">
+              <h4 className="font-semibold text-danger mb-2">Cancelación</h4>
+              <p className="text-sm text-danger">
                 <strong>Razón:</strong> {transfer.cancellationReason}
               </p>
               {transfer.cancelledAt && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-danger/80 mt-1">
                   Cancelada el: {new Date(transfer.cancelledAt).toLocaleString('es-BO')}
                 </p>
               )}
@@ -478,21 +447,21 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           )}
 
           {/* Action Buttons */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-3">Acciones</h4>
+          <div className="bg-app border border-edge rounded-lg p-4">
+            <h4 className="font-semibold text-ink mb-3">Acciones</h4>
             <div className="flex flex-wrap gap-3">
               {transfer.status === 'ASIGNADA' && (
                 <button
                   onClick={() => handleStateAction('start-preparation')}
                   disabled={loading}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:bg-gray-400"
+                  className="px-4 py-2 bg-warning text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   Iniciar Preparación
                 </button>
               )}
 
               {transfer.status === 'LISTA_DESPACHO' && (
-                <p className="text-sm text-gray-600 bg-white border border-gray-200 rounded-lg px-4 py-2">
+                <p className="text-sm text-ink-soft bg-surface border border-edge rounded-lg px-4 py-2">
                   Esperando que el transportista escanee el código QR en el
                   origen para iniciar el tránsito.
                 </p>
@@ -502,7 +471,7 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
                 <button
                   onClick={() => handleStateAction('arrive-destination')}
                   disabled={loading}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:bg-gray-400"
+                  className="px-4 py-2 bg-info text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   Marcar Llegada a Destino
                 </button>
@@ -512,7 +481,7 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
                 <button
                   onClick={() => handleStateAction('complete')}
                   disabled={loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400"
+                  className="px-4 py-2 bg-success text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   Completar Transferencia
                 </button>
@@ -525,12 +494,12 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
                     value={cancellationReason}
                     onChange={(e) => setCancellationReason(e.target.value)}
                     placeholder="Razón de cancelación"
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="px-3 py-2 bg-surface text-ink border border-edge rounded-lg placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-danger"
                   />
                   <button
                     onClick={() => handleStateAction('cancel')}
                     disabled={loading}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:bg-gray-400"
+                    className="px-4 py-2 bg-danger text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                   >
                     Cancelar Transferencia
                   </button>
@@ -543,7 +512,7 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="px-6 py-2 border border-edge rounded-lg text-ink-soft hover:bg-app transition"
             >
               Cerrar
             </button>
