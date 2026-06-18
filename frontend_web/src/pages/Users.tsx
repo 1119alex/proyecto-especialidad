@@ -71,9 +71,9 @@ const Users: React.FC = () => {
 
   const getRoleBadge = (role: UserRole) => {
     const roleColors = {
-      ADMIN: 'bg-purple-100 text-purple-800',
-      TRANSPORTISTA: 'bg-blue-100 text-blue-800',
-      ENCARGADO_ALMACEN: 'bg-green-100 text-green-800',
+      ADMIN: 'bg-info-soft text-info',
+      TRANSPORTISTA: 'bg-primary-soft text-primary',
+      ENCARGADO_ALMACEN: 'bg-success-soft text-success',
     };
 
     const roleLabels = {
@@ -94,64 +94,42 @@ const Users: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Usuarios</h1>
+          <h1 className="text-3xl font-bold text-ink">Usuarios</h1>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-strong transition"
           >
             + Nuevo Usuario
           </button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setFilter('ALL')}
-              className={`px-4 py-2 rounded-lg transition ${
-                filter === 'ALL'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilter('ADMIN')}
-              className={`px-4 py-2 rounded-lg transition ${
-                filter === 'ADMIN'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Administradores
-            </button>
-            <button
-              onClick={() => setFilter('TRANSPORTISTA')}
-              className={`px-4 py-2 rounded-lg transition ${
-                filter === 'TRANSPORTISTA'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Transportistas
-            </button>
-            <button
-              onClick={() => setFilter('ENCARGADO_ALMACEN')}
-              className={`px-4 py-2 rounded-lg transition ${
-                filter === 'ENCARGADO_ALMACEN'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Encargados de Almacén
-            </button>
+        <div className="bg-surface border border-edge rounded-lg shadow-sm p-4">
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['ALL', 'Todos'],
+              ['ADMIN', 'Administradores'],
+              ['TRANSPORTISTA', 'Transportistas'],
+              ['ENCARGADO_ALMACEN', 'Encargados de Almacén'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`px-4 py-2 rounded-lg transition ${
+                  filter === value
+                    ? 'bg-primary text-white'
+                    : 'bg-app text-ink-soft hover:bg-edge'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -164,47 +142,47 @@ const Users: React.FC = () => {
         ) : (
           <>
             {/* Users Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="bg-surface border border-edge rounded-lg shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-edge">
+                <thead className="bg-app">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Nombre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Teléfono
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Rol
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-edge">
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-10 text-center text-ink-muted">
                         No hay usuarios registrados
                       </td>
                     </tr>
                   ) : (
                     users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={user.id} className="hover:bg-app transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-ink">
                           {user.firstName} {user.lastName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                           {user.email}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                           {user.phone || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -212,10 +190,10 @@ const Users: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               user.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
+                                ? 'bg-success-soft text-success'
+                                : 'bg-danger-soft text-danger'
                             }`}
                           >
                             {user.isActive ? 'Activo' : 'Inactivo'}
@@ -224,13 +202,13 @@ const Users: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(user)}
-                            className="text-primary hover:text-blue-900 mr-4"
+                            className="text-primary hover:text-primary-strong mr-4"
                           >
                             Editar
                           </button>
                           <button
                             onClick={() => handleDelete(user.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-danger hover:opacity-80"
                           >
                             Eliminar
                           </button>

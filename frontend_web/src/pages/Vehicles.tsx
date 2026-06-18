@@ -57,10 +57,10 @@ const Vehicles: React.FC = () => {
 
   const getStatusBadge = (status: VehicleStatus) => {
     const statusColors = {
-      DISPONIBLE: 'bg-green-100 text-green-800',
-      EN_USO: 'bg-blue-100 text-blue-800',
-      MANTENIMIENTO: 'bg-yellow-100 text-yellow-800',
-      FUERA_SERVICIO: 'bg-red-100 text-red-800',
+      DISPONIBLE: 'bg-success-soft text-success',
+      EN_USO: 'bg-primary-soft text-primary',
+      MANTENIMIENTO: 'bg-warning-soft text-warning',
+      FUERA_SERVICIO: 'bg-danger-soft text-danger',
     };
 
     const statusLabels = {
@@ -82,10 +82,10 @@ const Vehicles: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Vehículos</h1>
+          <h1 className="text-3xl font-bold text-ink">Vehículos</h1>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-strong transition"
           >
             + Nuevo Vehículo
           </button>
@@ -93,7 +93,7 @@ const Vehicles: React.FC = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -106,47 +106,47 @@ const Vehicles: React.FC = () => {
         ) : (
           <>
             {/* Vehicles Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="bg-surface border border-edge rounded-lg shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-edge">
+                <thead className="bg-app">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Placa
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Modelo
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Capacidad
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Disponible
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-edge">
                   {vehicles.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-10 text-center text-ink-muted">
                         No hay vehículos registrados
                       </td>
                     </tr>
                   ) : (
                     vehicles.map((vehicle) => (
-                      <tr key={vehicle.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={vehicle.id} className="hover:bg-app transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-ink">
                           {vehicle.licensePlate}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink">
                           {vehicle.model}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                           {vehicle.capacity} kg
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -154,10 +154,10 @@ const Vehicles: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               vehicle.isAvailable
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-success-soft text-success'
+                                : 'bg-app text-ink-soft'
                             }`}
                           >
                             {vehicle.isAvailable ? 'Sí' : 'No'}
@@ -166,13 +166,13 @@ const Vehicles: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEdit(vehicle)}
-                            className="text-primary hover:text-blue-900 mr-4"
+                            className="text-primary hover:text-primary-strong mr-4"
                           >
                             Editar
                           </button>
                           <button
                             onClick={() => handleDelete(vehicle.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-danger hover:opacity-80"
                           >
                             Eliminar
                           </button>

@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { NotificationBell } from './NotificationBell';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MainLayoutProps {
@@ -78,6 +79,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
+            <ThemeToggle />
+
             <NotificationBell />
 
             <div className="h-8 w-px bg-edge" aria-hidden="true" />

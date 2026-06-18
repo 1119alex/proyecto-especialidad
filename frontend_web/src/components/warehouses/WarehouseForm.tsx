@@ -114,22 +114,22 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border border-edge w-full max-w-2xl shadow-lg rounded-lg bg-surface">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-bold text-gray-900">
+          <h3 className="text-2xl font-bold text-ink">
             {warehouse ? 'Editar Almacén' : 'Nuevo Almacén'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-ink-muted hover:text-ink text-2xl font-bold"
           >
             ×
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -137,7 +137,7 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="code" className="block text-sm font-medium text-ink-soft mb-1">
                 Código *
               </label>
               <input
@@ -148,13 +148,13 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 onChange={handleChange}
                 required
                 maxLength={20}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="Ej: ALM-001"
               />
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-ink-soft mb-1">
                 Nombre del Almacén *
               </label>
               <input
@@ -164,14 +164,14 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="Ej: Almacén Central"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="address" className="block text-sm font-medium text-ink-soft mb-1">
               Dirección *
             </label>
             <textarea
@@ -181,14 +181,14 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
               onChange={handleChange}
               required
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
               placeholder="Ej: Av. Principal 123, La Paz"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="city" className="block text-sm font-medium text-ink-soft mb-1">
                 Ciudad *
               </label>
               <input
@@ -198,13 +198,13 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 value={formData.city}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="Ej: La Paz"
               />
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="phone" className="block text-sm font-medium text-ink-soft mb-1">
                 Teléfono
               </label>
               <input
@@ -213,13 +213,13 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="Ej: 2-2123456"
               />
             </div>
 
             <div>
-              <label htmlFor="managerId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="managerId" className="block text-sm font-medium text-ink-soft mb-1">
                 Encargado
               </label>
               <select
@@ -228,7 +228,7 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 value={formData.managerId}
                 onChange={handleChange}
                 disabled={loadingManagers}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted disabled:opacity-60"
               >
                 <option value="">Sin asignar</option>
                 {availableManagers.map((manager) => (
@@ -238,14 +238,14 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 ))}
               </select>
               {loadingManagers && (
-                <p className="text-xs text-gray-500 mt-1">Cargando encargados...</p>
+                <p className="text-xs text-ink-muted mt-1">Cargando encargados...</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="latitude" className="block text-sm font-medium text-ink-soft mb-1">
                 Latitud *
               </label>
               <input
@@ -258,13 +258,13 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 step="0.00000001"
                 min="-90"
                 max="90"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="-16.5000"
               />
             </div>
 
             <div>
-              <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="longitude" className="block text-sm font-medium text-ink-soft mb-1">
                 Longitud *
               </label>
               <input
@@ -277,13 +277,13 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 step="0.00000001"
                 min="-180"
                 max="180"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="-68.1500"
               />
             </div>
 
             <div>
-              <label htmlFor="geofenceRadius" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="geofenceRadius" className="block text-sm font-medium text-ink-soft mb-1">
                 Radio Geocerca (m)
               </label>
               <input
@@ -294,7 +294,7 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 onChange={handleChange}
                 min="10"
                 max="10000"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="100"
               />
             </div>
@@ -308,19 +308,19 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
                 name="isActive"
                 checked={formData.isActive || false}
                 onChange={handleChange}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                className="w-4 h-4 text-primary border-edge rounded focus:ring-primary"
               />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-ink-soft">
                 Almacén activo
               </span>
             </label>
-            <p className="text-xs text-gray-500 mt-1 ml-6">
+            <p className="text-xs text-ink-muted mt-1 ml-6">
               Los almacenes inactivos no estarán disponibles para nuevas transferencias
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-primary-soft border border-primary/20 rounded-lg p-3">
+            <p className="text-sm text-primary">
               <strong>Nota:</strong> Puedes obtener las coordenadas desde Google Maps haciendo clic derecho en el mapa y seleccionando las coordenadas. El radio de geocerca se utiliza para validar la ubicación del vehículo al iniciar/completar transferencias.
             </p>
           </div>
@@ -329,14 +329,14 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({ warehouse, onClose }) => 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="px-4 py-2 border border-edge rounded-lg text-ink-soft hover:bg-app transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 transition disabled:bg-gray-400"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition disabled:opacity-50"
             >
               {loading ? 'Guardando...' : warehouse ? 'Actualizar' : 'Crear'}
             </button>

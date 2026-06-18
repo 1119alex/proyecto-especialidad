@@ -2,6 +2,9 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Dark mode por clase en <html> (se alterna con el toggle del topbar) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Marca */
   --color-primary: #1d4ed8;
@@ -35,6 +38,32 @@
     Roboto, sans-serif;
 }
 
+/* Overrides de los tokens para modo oscuro. Como las utilidades de Tailwind v4
+   referencian estas variables, redefinirlas voltea toda la UI basada en tokens
+   (bg-surface, text-ink, border-edge, *-soft, etc.) sin tocar cada componente. */
+.dark {
+  --color-primary: #3b82f6;
+  --color-primary-strong: #60a5fa;
+  --color-primary-soft: #1e293b;
+
+  --color-app: #0b1120;
+  --color-surface: #111827;
+  --color-edge: #1f2937;
+
+  --color-ink: #f1f5f9;
+  --color-ink-soft: #cbd5e1;
+  --color-ink-muted: #94a3b8;
+
+  --color-success: #22c55e;
+  --color-success-soft: #052e1a;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #3a2a06;
+  --color-danger: #ef4444;
+  --color-danger-soft: #3a1212;
+  --color-info: #a78bfa;
+  --color-info-soft: #251b3d;
+}
+
 body {
   margin: 0;
   background-color: var(--color-app);
@@ -42,6 +71,13 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Transición suave al alternar el tema */
+body,
+.bg-surface,
+.bg-app {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 code {

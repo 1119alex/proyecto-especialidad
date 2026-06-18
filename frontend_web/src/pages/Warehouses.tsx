@@ -60,10 +60,10 @@ const Warehouses: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Almacenes</h1>
+          <h1 className="text-3xl font-bold text-ink">Almacenes</h1>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-strong transition"
           >
             + Nuevo Almacén
           </button>
@@ -71,7 +71,7 @@ const Warehouses: React.FC = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -84,34 +84,34 @@ const Warehouses: React.FC = () => {
         ) : (
           <>
             {/* Warehouses Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="bg-surface border border-edge rounded-lg shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-edge">
+                <thead className="bg-app">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Código
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Nombre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Ciudad
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Encargado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-edge">
                   {warehouses.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-10 text-center text-ink-muted">
                         No hay almacenes registrados
                       </td>
                     </tr>
@@ -122,31 +122,31 @@ const Warehouses: React.FC = () => {
                         : null;
 
                       return (
-                        <tr key={warehouse.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <tr key={warehouse.id} className="hover:bg-app transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-ink">
                             {warehouse.code}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink">
                             {warehouse.name}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                             {warehouse.city}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                             {manager ? (
                               <span>
                                 {manager.firstName} {manager.lastName}
                               </span>
                             ) : (
-                              <span className="text-gray-400 italic">Sin asignar</span>
+                              <span className="text-ink-muted italic">Sin asignar</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                 warehouse.isActive
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-success-soft text-success'
+                                  : 'bg-danger-soft text-danger'
                               }`}
                             >
                               {warehouse.isActive ? 'Activo' : 'Inactivo'}
@@ -155,13 +155,13 @@ const Warehouses: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => handleEdit(warehouse)}
-                              className="text-primary hover:text-blue-900 mr-4"
+                              className="text-primary hover:text-primary-strong mr-4"
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => handleDelete(warehouse.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-danger hover:opacity-80"
                             >
                               Eliminar
                             </button>

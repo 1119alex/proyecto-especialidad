@@ -73,22 +73,22 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border border-edge w-full max-w-2xl shadow-lg rounded-lg bg-surface">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-2xl font-bold text-gray-900">
+          <h3 className="text-2xl font-bold text-ink">
             {vehicle ? 'Editar Vehículo' : 'Nuevo Vehículo'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-ink-muted hover:text-ink text-2xl font-bold"
           >
             ×
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-danger-soft border border-danger/20 text-danger px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -96,7 +96,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="licensePlate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="licensePlate" className="block text-sm font-medium text-ink-soft mb-1">
                 Placa del Vehículo *
               </label>
               <input
@@ -106,13 +106,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
                 value={formData.licensePlate}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary uppercase"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted uppercase"
                 placeholder="Ej: ABC-1234"
               />
             </div>
 
             <div>
-              <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="year" className="block text-sm font-medium text-ink-soft mb-1">
                 Año
               </label>
               <input
@@ -123,14 +123,14 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
                 onChange={handleChange}
                 min="1990"
                 max={new Date().getFullYear() + 1}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
                 placeholder="Ej: 2023"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="model" className="block text-sm font-medium text-ink-soft mb-1">
               Modelo del Vehículo *
             </label>
             <input
@@ -140,13 +140,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               value={formData.model}
               onChange={handleChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
               placeholder="Ej: Isuzu NQR"
             />
           </div>
 
           <div>
-            <label htmlFor="capacity" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="capacity" className="block text-sm font-medium text-ink-soft mb-1">
               Capacidad de Carga (kg) *
             </label>
             <input
@@ -158,13 +158,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               required
               min="0"
               step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
               placeholder="Ej: 5000"
             />
           </div>
 
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="status" className="block text-sm font-medium text-ink-soft mb-1">
               Estado del Vehículo
             </label>
             <select
@@ -172,7 +172,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
             >
               <option value="DISPONIBLE">Disponible</option>
               <option value="EN_USO">En Uso</option>
@@ -189,19 +189,19 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
                 name="isAvailable"
                 checked={formData.isAvailable || false}
                 onChange={handleChange}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                className="w-4 h-4 text-primary border-edge rounded focus:ring-primary"
               />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-ink-soft">
                 Vehículo disponible para asignación
               </span>
             </label>
-            <p className="text-xs text-gray-500 mt-1 ml-6">
+            <p className="text-xs text-ink-muted mt-1 ml-6">
               Los vehículos no disponibles no podrán ser asignados a transferencias
             </p>
           </div>
 
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="notes" className="block text-sm font-medium text-ink-soft mb-1">
               Notas / Observaciones
             </label>
             <textarea
@@ -210,13 +210,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
               value={formData.notes}
               onChange={handleChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-surface text-ink border border-edge rounded-lg focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-ink-muted"
               placeholder="Información adicional, mantenimientos, observaciones..."
             />
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-primary-soft border border-primary/20 rounded-lg p-3">
+            <p className="text-sm text-primary">
               <strong>Nota:</strong> Los vehículos con estado "Disponible" estarán disponibles para asignar a nuevas transferencias.
             </p>
           </div>
@@ -225,14 +225,14 @@ const VehicleForm: React.FC<VehicleFormProps> = ({ vehicle, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+              className="px-4 py-2 border border-edge rounded-lg text-ink-soft hover:bg-app transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 transition disabled:bg-gray-400"
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-strong transition disabled:opacity-50"
             >
               {loading ? 'Guardando...' : vehicle ? 'Actualizar' : 'Crear'}
             </button>
