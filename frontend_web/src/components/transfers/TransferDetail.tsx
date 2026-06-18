@@ -126,9 +126,6 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
         case 'start-preparation':
           await transferService.startPreparation(transfer.id);
           break;
-        case 'start-transit':
-          await transferService.startTransit(transfer.id);
-          break;
         case 'arrive-destination':
           await transferService.arriveDestination(transfer.id);
           break;
@@ -495,13 +492,10 @@ const TransferDetail: React.FC<TransferDetailProps> = ({ transfer: initialTransf
               )}
 
               {transfer.status === 'LISTA_DESPACHO' && (
-                <button
-                  onClick={() => handleStateAction('start-transit')}
-                  disabled={loading}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-                >
-                  Iniciar Tránsito
-                </button>
+                <p className="text-sm text-gray-600 bg-white border border-gray-200 rounded-lg px-4 py-2">
+                  Esperando que el transportista escanee el código QR en el
+                  origen para iniciar el tránsito.
+                </p>
               )}
 
               {transfer.status === 'EN_TRANSITO' && (

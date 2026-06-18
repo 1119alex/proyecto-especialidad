@@ -52,11 +52,8 @@ export const transferService = {
     return response.data;
   },
 
-  // Iniciar tránsito
-  startTransit: async (id: number): Promise<Transfer> => {
-    const response = await api.patch<Transfer>(`/transfers/${id}/start-transit`);
-    return response.data;
-  },
+  // El tránsito se inicia cuando el transportista verifica el QR en origen
+  // (verifyQR location='origin'); no hay una acción "iniciar tránsito" aparte.
 
   // Marcar llegada a destino
   arriveDestination: async (id: number): Promise<Transfer> => {

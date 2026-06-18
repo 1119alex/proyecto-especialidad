@@ -558,35 +558,11 @@ export class TransfersService {
     return this.transferRepository.save(transfer);
   }
 
-  async startTransit(id: number, user: User): Promise<Transfer> {
-    const transfer = await this.findOne(id);
-
-    if (user.role === UserRole.ENCARGADO_ALMACEN) {
-      this.assertWarehouseStaff(
-        user,
-        transfer.originWarehouseId,
-        'iniciar el tránsito',
-      );
-    } else {
-      this.assertAssignedDriver(user, transfer);
-    }
-
-    if (!transfer.qrVerifiedAtOrigin) {
-      throw new BadRequestException(
-        'Debe verificar el código QR en el origen antes de iniciar el tránsito',
-      );
-    }
-
-    if (transfer.status !== TransferStatus.LISTA_DESPACHO) {
-      throw new BadRequestException(
-        'Solo se puede iniciar tránsito de transferencias listas para despacho',
-      );
-    }
-
-    transfer.status = TransferStatus.EN_TRANSITO;
-    transfer.actualDepartureTime = new Date();
-    return this.transferRepository.save(transfer);
-  }
+  // El tránsito NO tiene un endpoint propio: se inicia al verificar el QR en
+  // origen (verifyQR con location='origin'). Escanear el QR ES la acción que
+  // confirma que el transportista recogió la carga y arranca el viaje, por lo
+  // que un paso "start-transit" separado sería redundante (y solo accesible
+  // antes de la verificación, justo cuando aún no debe permitirse).
 
   async arriveDestination(id: number, user: User): Promise<Transfer> {
     const transfer = await this.findOne(id);
@@ -918,6 +894,8 @@ export class TransfersService {
         };
       }
 
+      // Verificar el QR en origen es lo que inicia el tránsito (no hay un paso
+      // "start-transit" aparte): registra la salida y deja la transferencia en ruta
       transfer.qrVerifiedAtOrigin = new Date();
       transfer.status = TransferStatus.EN_TRANSITO;
       transfer.actualDepartureTime = new Date();
@@ -998,6 +976,12 @@ export class TransfersService {
     latitude: number,
     longitude: number,
   ): Promise<boolean> {
+    // Solo tiene sentido durante el tránsito: evita re-disparar la llegada
+    // (y sobreescribir actualArrivalTime) si ya se marcó por otra vía.
+    if (transfer.status !== TransferStatus.EN_TRANSITO) {
+      return false;
+    }
+
     const destination = transfer.destinationWarehouse;
     if (
       !destination ||

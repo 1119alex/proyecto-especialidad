@@ -90,11 +90,8 @@ export class TransfersController {
     return this.transfersService.startPreparation(id, user);
   }
 
-  @Patch(':id/start-transit')
-  @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
-  startTransit(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
-    return this.transfersService.startTransit(id, user);
-  }
+  // El tránsito se inicia al verificar el QR en origen (POST :id/verify-qr con
+  // location='origin'); no existe un endpoint start-transit separado.
 
   @Patch(':id/arrive-destination')
   @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA)
