@@ -1,5 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../../services/api/api_client_provider.dart';
+import '../../../../shared/providers/database_provider.dart';
+import '../../data/datasources/transfers_local_datasource.dart';
 import '../../data/datasources/transfers_remote_datasource.dart';
 import '../../data/repositories/transfers_repository_impl.dart';
 import '../../domain/entities/transfer_entity.dart';
@@ -15,11 +17,16 @@ TransfersRemoteDatasource transfersRemoteDatasource(
   return TransfersRemoteDatasource(apiClient: apiClient);
 }
 
-/// Provider del repository
+/// Provider del repository (offline-first: remoto + caché Drift)
 @riverpod
 TransfersRepository transfersRepository(TransfersRepositoryRef ref) {
-  final datasource = ref.watch(transfersRemoteDatasourceProvider);
-  return TransfersRepositoryImpl(remoteDatasource: datasource);
+  final remoteDatasource = ref.watch(transfersRemoteDatasourceProvider);
+  final localDatasource =
+      TransfersLocalDatasource(database: ref.watch(databaseProvider));
+  return TransfersRepositoryImpl(
+    remoteDatasource: remoteDatasource,
+    localDatasource: localDatasource,
+  );
 }
 
 /// Provider para obtener todas las transferencias

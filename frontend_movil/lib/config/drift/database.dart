@@ -58,6 +58,34 @@ class AppDatabase extends _$AppDatabase {
     return into(transfers).insertOnConflictUpdate(transfer);
   }
 
+  /// Todas las transferencias cacheadas, más recientes primero
+  Future<List<Transfer>> getAllTransfersOrdered() {
+    return (select(transfers)
+          ..orderBy([
+            (t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.desc,
+                )
+          ]))
+        .get();
+  }
+
+  /// Upsert por ID remoto: actualiza la fila existente (si la hay) o inserta
+  /// una nueva. Necesario para cachear datos del backend sin duplicar filas,
+  /// ya que el caché se identifica por `remoteId`, no por la PK local.
+  Future<void> upsertTransferByRemoteId(
+    int remoteId,
+    TransfersCompanion companion,
+  ) async {
+    final existing = await getTransferByRemoteId(remoteId);
+    if (existing != null) {
+      await (update(transfers)..where((t) => t.remoteId.equals(remoteId)))
+          .write(companion);
+    } else {
+      await into(transfers).insert(companion);
+    }
+  }
+
   /// Marcar transferencia para sincronizar
   Future<void> markTransferForSync(int transferId, String action) {
     return (update(transfers)..where((t) => t.id.equals(transferId))).write(

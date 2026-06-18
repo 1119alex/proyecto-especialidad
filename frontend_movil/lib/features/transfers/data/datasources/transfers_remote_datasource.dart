@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../../services/api/api_client.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/errors/network_exception.dart';
 import '../models/transfer_model.dart';
 
 /// Datasource remoto para Transfers
@@ -9,6 +10,16 @@ class TransfersRemoteDatasource {
 
   TransfersRemoteDatasource({required ApiClient apiClient})
       : _apiClient = apiClient;
+
+  /// True si el error de Dio se debe a falta de conectividad (no a una
+  /// respuesta del servidor). Permite a la capa superior caer al caché local.
+  bool _isConnectivityError(DioException e) {
+    return e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.response == null;
+  }
 
   /// Obtener todas las transferencias
   /// El backend filtra automáticamente según el rol del usuario autenticado
@@ -21,6 +32,9 @@ class TransfersRemoteDatasource {
           .map((json) => TransferModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
+      if (_isConnectivityError(e)) {
+        throw const NetworkException();
+      }
       if (e.response?.statusCode == 401) {
         throw Exception('Sesión expirada. Por favor inicia sesión nuevamente');
       } else if (e.response?.statusCode == 403) {
@@ -40,6 +54,9 @@ class TransfersRemoteDatasource {
 
       return TransferModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
+      if (_isConnectivityError(e)) {
+        throw const NetworkException();
+      }
       if (e.response?.statusCode == 404) {
         throw Exception('Transferencia no encontrada');
       } else if (e.response?.statusCode == 401) {
@@ -153,6 +170,9 @@ class TransfersRemoteDatasource {
           .map((json) => TransferModel.fromJson(json as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
+      if (_isConnectivityError(e)) {
+        throw const NetworkException();
+      }
       throw Exception('Error al filtrar transferencias: ${e.message}');
     } catch (e) {
       throw Exception('Error inesperado: $e');

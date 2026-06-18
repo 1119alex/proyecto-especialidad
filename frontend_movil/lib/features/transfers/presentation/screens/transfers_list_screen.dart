@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
 import '../../../../shared/providers/auth_provider.dart';
+import '../../../../shared/providers/connectivity_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../../domain/entities/transfer_entity.dart';
 
@@ -23,6 +24,7 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
     final transfersAsync = ref.watch(transfersProvider);
     final authState = ref.watch(authProvider);
     final userName = authState.value?.userName ?? 'Usuario';
+    final isOnline = ref.watch(connectivityStateProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1E293B),
@@ -120,6 +122,9 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
               ),
             ),
 
+            // Aviso de modo sin conexión (datos servidos desde caché local)
+            if (!isOnline) _buildOfflineBanner(),
+
             // Estado actual del viaje
             _buildActiveTrip(transfersAsync),
 
@@ -211,6 +216,38 @@ class _TransfersListScreenState extends ConsumerState<TransfersListScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  /// Banner que avisa que la app opera sin conexión y los datos provienen
+  /// del último estado guardado localmente (offline-first, RNF05).
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C2D12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEA580C)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.cloud_off, color: Color(0xFFFB923C), size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Sin conexión — mostrando datos guardados. Se actualizarán al '
+              'recuperar la señal.',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
