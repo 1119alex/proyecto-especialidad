@@ -12,6 +12,9 @@
     <!-- Internet permission -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Push notifications (Android 13+ requiere permiso en runtime) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
         android:label="frontend_movil"
         android:name="${applicationName}"
