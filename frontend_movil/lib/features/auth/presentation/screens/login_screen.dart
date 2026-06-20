@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers/auth_provider.dart';
 
@@ -71,12 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await Future.delayed(const Duration(milliseconds: 900));
       if (!mounted) return;
 
-      final userRole = ref.read(authProvider).value?.userRole;
-      if (userRole == AppConstants.roleEncargadoAlmacen) {
-        context.go(AppRoutes.warehouseHome);
-      } else {
-        context.go(AppRoutes.inicio);
-      }
+      context.go(AppRoutes.inicio);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);

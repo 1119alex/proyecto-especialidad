@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../shared/providers/auth_provider.dart';
 
 /// Splash Screen - Pantalla de carga inicial
@@ -33,14 +32,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     if (authState.isAuthenticated) {
-      // Hay sesión activa, redirigir según rol
-      final userRole = authState.userRole;
-
-      if (userRole == AppConstants.roleEncargadoAlmacen) {
-        context.go(AppRoutes.warehouseHome);
-      } else {
-        context.go(AppRoutes.inicio);
-      }
+      // Hay sesión activa → al shell (el Inicio se adapta al rol)
+      context.go(AppRoutes.inicio);
     } else {
       // No hay sesión, ir al login
       context.go(AppRoutes.login);

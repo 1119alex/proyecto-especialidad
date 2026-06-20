@@ -5,6 +5,7 @@ import '../../../../config/router/app_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers/auth_provider.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 
 /// Especificación de un ítem de la barra inferior.
 class _NavSpec {
@@ -28,15 +29,31 @@ class AppShell extends ConsumerWidget {
 
   static const _transportista = [
     _NavSpec(Icons.home_outlined, Icons.home_rounded, 'Inicio'),
-    _NavSpec(Icons.local_shipping_outlined, Icons.local_shipping_rounded, 'Viajes'),
-    _NavSpec(Icons.notifications_outlined, Icons.notifications_rounded, 'Alertas'),
+    _NavSpec(
+      Icons.local_shipping_outlined,
+      Icons.local_shipping_rounded,
+      'Viajes',
+    ),
+    _NavSpec(
+      Icons.notifications_outlined,
+      Icons.notifications_rounded,
+      'Alertas',
+    ),
     _NavSpec(Icons.person_outline_rounded, Icons.person_rounded, 'Perfil'),
   ];
 
   static const _encargado = [
     _NavSpec(Icons.home_outlined, Icons.home_rounded, 'Inicio'),
-    _NavSpec(Icons.compare_arrows_rounded, Icons.compare_arrows_rounded, 'Transfer.'),
-    _NavSpec(Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Inventario'),
+    _NavSpec(
+      Icons.compare_arrows_rounded,
+      Icons.compare_arrows_rounded,
+      'Transfer.',
+    ),
+    _NavSpec(
+      Icons.inventory_2_outlined,
+      Icons.inventory_2_rounded,
+      'Inventario',
+    ),
     _NavSpec(Icons.person_outline_rounded, Icons.person_rounded, 'Perfil'),
   ];
 
@@ -53,15 +70,19 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final role = ref.watch(authProvider).value?.userRole;
-    final items = role == AppConstants.roleEncargadoAlmacen
-        ? _encargado
-        : _transportista;
+    final isEncargado = role == AppConstants.roleEncargadoAlmacen;
+    final items = isEncargado ? _encargado : _transportista;
+
+    // Punto en la pestaña Alertas del transportista (índice 2) si hay no leídas.
+    final unread = ref.watch(unreadCountProvider);
+    final dotIndex = (!isEncargado && unread > 0) ? 2 : -1;
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: _ShellBar(
         items: items,
         currentIndex: navigationShell.currentIndex,
+        dotIndex: dotIndex,
         onSelect: _goBranch,
         onScan: () => _onScan(context),
       ),
@@ -73,12 +94,14 @@ class _ShellBar extends StatelessWidget {
   const _ShellBar({
     required this.items,
     required this.currentIndex,
+    required this.dotIndex,
     required this.onSelect,
     required this.onScan,
   });
 
   final List<_NavSpec> items;
   final int currentIndex;
+  final int dotIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onScan;
 
@@ -120,7 +143,33 @@ class _ShellBar extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(active ? spec.activeIcon : spec.icon, color: color, size: 24),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                active ? spec.activeIcon : spec.icon,
+                color: color,
+                size: 24,
+              ),
+              if (index == dotIndex)
+                Positioned(
+                  right: -3,
+                  top: -2,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: theme.appColors.danger,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.colorScheme.surface,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 3),
           Text(
             spec.label,
@@ -172,8 +221,11 @@ class _ScanButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.qr_code_scanner_rounded,
-                color: Colors.white, size: 29),
+            child: const Icon(
+              Icons.qr_code_scanner_rounded,
+              color: Colors.white,
+              size: 29,
+            ),
           ),
         ),
       ),

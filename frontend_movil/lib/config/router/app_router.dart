@@ -5,8 +5,6 @@ import '../../shared/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/profile_screen.dart';
-import '../../features/transfers/presentation/screens/transfers_list_screen.dart';
 import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
 import '../../features/transfers/presentation/screens/qr_scanner_screen.dart';
 import '../../features/transfers/presentation/screens/universal_scanner_screen.dart';
@@ -15,7 +13,8 @@ import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
 import '../../features/transfers/presentation/screens/reception_screen.dart';
 import '../../features/warehouse/presentation/screens/warehouse_home_screen.dart';
 import '../../features/main/presentation/screens/app_shell.dart';
-import '../../features/main/presentation/screens/placeholder_tab.dart';
+import '../../features/main/presentation/screens/role_tabs.dart';
+import '../../features/notifications/presentation/screens/alerts_screen.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
@@ -50,6 +49,9 @@ class AppRoutes {
   // Profile
   static const String profile = '/profile';
 
+  // Alertas (ruta pusheada para el encargado; el transportista la tiene en pestaña)
+  static const String alerts = '/alerts';
+
   // Admin
   static const String adminPanel = '/admin';
   static const String manageUsers = '/admin/users';
@@ -69,7 +71,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Usar ref.read para evitar rebuilds innecesarios del router
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.value?.isAuthenticated ?? false;
-      final userRole = authState.value?.userRole;
       final isSplashRoute = state.matchedLocation == AppRoutes.splash;
       final isLoginRoute = state.matchedLocation == AppRoutes.login;
 
@@ -83,13 +84,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.login;
       }
 
-      // Si está autenticado y está en login, redirigir según rol
+      // Si está autenticado y está en login, entrar al shell
       if (isAuthenticated && isLoginRoute) {
-        if (userRole == AppConstants.roleEncargadoAlmacen) {
-          return AppRoutes.warehouseHome;
-        } else {
-          return AppRoutes.inicio;
-        }
+        return AppRoutes.inicio;
       }
 
       return null;
@@ -128,7 +125,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.inicio,
-                builder: (context, state) => const TransfersListScreen(),
+                builder: (context, state) => const HomeTab(),
               ),
             ],
           ),
@@ -136,14 +133,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.viajes,
-                builder: (context, state) => const PlaceholderTab(
-                  appBarTitle: 'Viajes',
-                  title: 'Historial en camino',
-                  message:
-                      'Aquí verás el historial de tus viajes completados. '
-                      'Disponible muy pronto.',
-                  icon: Icons.local_shipping_outlined,
-                ),
+                builder: (context, state) => const SecondaryTab(),
               ),
             ],
           ),
@@ -151,14 +141,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.avisos,
-                builder: (context, state) => const PlaceholderTab(
-                  appBarTitle: 'Alertas',
-                  title: 'Sin novedades por ahora',
-                  message:
-                      'Tus notificaciones de viajes aparecerán aquí. '
-                      'Disponible muy pronto.',
-                  icon: Icons.notifications_outlined,
-                ),
+                builder: (context, state) => const TertiaryTab(),
               ),
             ],
           ),
@@ -166,7 +149,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) => const ProfileScreen(),
+                builder: (context, state) => const ProfileTab(),
               ),
             ],
           ),
@@ -205,6 +188,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.scan,
         builder: (context, state) => const UniversalScannerScreen(),
+      ),
+
+      // Alertas (pusheada sobre el shell)
+      GoRoute(
+        path: AppRoutes.alerts,
+        builder: (context, state) => const AlertsScreen(),
       ),
 
       // QR Scanner (con destino explícito, desde el detalle)
