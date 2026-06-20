@@ -5,14 +5,17 @@ import '../../shared/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/home_screen.dart';
+import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../../features/transfers/presentation/screens/transfers_list_screen.dart';
 import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
 import '../../features/transfers/presentation/screens/qr_scanner_screen.dart';
+import '../../features/transfers/presentation/screens/universal_scanner_screen.dart';
 import '../../features/transfers/presentation/screens/qr_display_screen.dart';
 import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
 import '../../features/transfers/presentation/screens/reception_screen.dart';
 import '../../features/warehouse/presentation/screens/warehouse_home_screen.dart';
+import '../../features/main/presentation/screens/app_shell.dart';
+import '../../features/main/presentation/screens/placeholder_tab.dart';
 
 /// Rutas de la aplicación
 class AppRoutes {
@@ -24,6 +27,11 @@ class AppRoutes {
   static const String home = '/';
   static const String warehouseHome = '/warehouse-home';
 
+  // Pestañas del shell persistente (barra inferior)
+  static const String inicio = '/inicio';
+  static const String viajes = '/viajes';
+  static const String avisos = '/avisos';
+
   // Transfers
   static const String transfers = '/transfers';
   static const String transferDetail = '/transfers/:id';
@@ -33,6 +41,7 @@ class AppRoutes {
   static const String qrDisplay = '/qr-display';
   static const String qrScanner = '/qr-scanner';
   static const String qrVerification = '/qr-verification';
+  static const String scan = '/scan'; // escáner universal (botón central)
 
   // GPS & Reception
   static const String gpsTracking = '/gps-tracking';
@@ -79,7 +88,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (userRole == AppConstants.roleEncargadoAlmacen) {
           return AppRoutes.warehouseHome;
         } else {
-          return AppRoutes.transfers;
+          return AppRoutes.inicio;
         }
       }
 
@@ -98,23 +107,73 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
 
-      // Home
+      // Raíz: redirige al shell
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const HomeScreen(),
+        redirect: (context, state) => AppRoutes.inicio,
       ),
 
-      // Warehouse Home (Encargado de Almacén)
+      // Warehouse Home (Encargado de Almacén) — se integra al shell en la Fase 4
       GoRoute(
         path: AppRoutes.warehouseHome,
         builder: (context, state) => const WarehouseHomeScreen(),
       ),
 
-      // Transfers
-      GoRoute(
-        path: AppRoutes.transfers,
-        builder: (context, state) => const TransfersListScreen(),
+      // Shell persistente: barra inferior única, una rama por pestaña.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.inicio,
+                builder: (context, state) => const TransfersListScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.viajes,
+                builder: (context, state) => const PlaceholderTab(
+                  appBarTitle: 'Viajes',
+                  title: 'Historial en camino',
+                  message:
+                      'Aquí verás el historial de tus viajes completados. '
+                      'Disponible muy pronto.',
+                  icon: Icons.local_shipping_outlined,
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.avisos,
+                builder: (context, state) => const PlaceholderTab(
+                  appBarTitle: 'Alertas',
+                  title: 'Sin novedades por ahora',
+                  message:
+                      'Tus notificaciones de viajes aparecerán aquí. '
+                      'Disponible muy pronto.',
+                  icon: Icons.notifications_outlined,
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
+
+      // Detalle de transferencia (se abre sobre el shell)
       GoRoute(
         path: AppRoutes.transferDetail,
         builder: (context, state) {
@@ -142,7 +201,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // QR Scanner
+      // Escáner universal (botón central de la barra)
+      GoRoute(
+        path: AppRoutes.scan,
+        builder: (context, state) => const UniversalScannerScreen(),
+      ),
+
+      // QR Scanner (con destino explícito, desde el detalle)
       GoRoute(
         path: AppRoutes.qrScanner,
         builder: (context, state) {
@@ -179,12 +244,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             destinationName: extra['destinationName'] as String,
           );
         },
-      ),
-
-      // Profile
-      GoRoute(
-        path: AppRoutes.profile,
-        builder: (context, state) => const ProfileScreen(),
       ),
 
       // Admin Routes (protegidas por rol)
@@ -281,12 +340,6 @@ class CreateTransferScreen extends StatelessWidget {
   const CreateTransferScreen({super.key});
   @override
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Create Transfer')));
-}
-
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Profile')));
 }
 
 class AdminPanelScreen extends StatelessWidget {

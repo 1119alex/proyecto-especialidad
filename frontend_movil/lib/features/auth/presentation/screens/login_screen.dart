@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers/auth_provider.dart';
 
 /// Login Screen - Pantalla de inicio de sesión
@@ -27,307 +28,226 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _showSnack(String message, {required bool success}) {
+    final c = Theme.of(context).appColors;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                success ? Icons.check_circle : Icons.error_outline,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: success ? c.success : c.danger,
+          duration: Duration(seconds: success ? 2 : 3),
+        ),
+      );
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
     try {
-      // Ejecutar login - esto lanzará excepción si falla
       await ref
           .read(authProvider.notifier)
           .login(_emailController.text.trim(), _passwordController.text);
 
       if (!mounted) return;
-
       setState(() => _isLoading = false);
-
-      // Mostrar mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '¡Inicio de sesión exitoso!',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green.shade600,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
-
-      // Esperar un momento para que el usuario vea el mensaje
-      await Future.delayed(const Duration(milliseconds: 1500));
-
+      _showSnack('¡Inicio de sesión exitoso!', success: true);
+      await Future.delayed(const Duration(milliseconds: 900));
       if (!mounted) return;
 
-      // Navegar según el rol del usuario
-      final authState = ref.read(authProvider);
-      final userRole = authState.value?.userRole;
-
+      final userRole = ref.read(authProvider).value?.userRole;
       if (userRole == AppConstants.roleEncargadoAlmacen) {
         context.go(AppRoutes.warehouseHome);
       } else {
-        context.go(AppRoutes.transfers);
+        context.go(AppRoutes.inicio);
       }
     } catch (e) {
-      // Capturar y mostrar el error
       if (!mounted) return;
-
       setState(() => _isLoading = false);
 
       String errorMessage = 'Error de inicio de sesión';
-      final errorString = e.toString();
-
-      if (errorString.contains('Credenciales inválidas')) {
+      final s = e.toString();
+      if (s.contains('Credenciales inválidas')) {
         errorMessage = 'Email o contraseña incorrectos';
-      } else if (errorString.contains('Usuario no encontrado')) {
+      } else if (s.contains('Usuario no encontrado')) {
         errorMessage = 'Usuario no encontrado';
-      } else if (errorString.contains('conexión') ||
-          errorString.contains('Connection') ||
-          errorString.contains('SocketException')) {
+      } else if (s.contains('conexión') ||
+          s.contains('Connection') ||
+          s.contains('SocketException')) {
         errorMessage = 'Error de conexión. Verifica tu internet';
-      } else if (errorString.contains('timeout') ||
-          errorString.contains('Timeout')) {
+      } else if (s.contains('timeout') || s.contains('Timeout')) {
         errorMessage = 'Tiempo de espera agotado';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  errorMessage,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      _showSnack(errorMessage, success: false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final c = theme.appColors;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1A2332),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade400,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.local_shipping_rounded,
-                      size: 56,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Título
-                  const Text(
-                    'LOGITRACK',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-
-                  // Label "CORREO"
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'CORREO',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Campo de Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'transportista@empresa.com',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF2A3544),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese su correo';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Por favor ingrese un correo válido';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Label "CONTRASEÑA"
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'CONTRASEÑA',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Campo de Password
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: '••••••••',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF2A3544),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: Colors.white54,
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo
+                    Center(
+                      child: Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [scheme.primary, scheme.secondary],
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: scheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                        child: const Icon(Icons.local_shipping_rounded,
+                            size: 48, color: Colors.white),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese su contraseña';
-                      }
-                      if (value.length < 6) {
-                        return 'La contraseña debe tener al menos 6 caracteres';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+                    Text(
+                      'LogiTrack',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Gestión de transferencias',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: c.muted),
+                    ),
+                    const SizedBox(height: 40),
 
-                  // Botón de Login
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
+                    const _FieldLabel('CORREO'),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        hintText: 'correo@empresa.com',
+                        prefixIcon: Icon(Icons.alternate_email_rounded),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Ingrese su correo';
+                        if (!v.contains('@')) return 'Correo no válido';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+
+                    const _FieldLabel('CONTRASEÑA'),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _isLoading ? null : _handleLogin(),
+                      decoration: InputDecoration(
+                        hintText: '••••••••',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword ? 'Mostrar' : 'Ocultar',
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined),
+                          onPressed: () =>
+                              setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Ingrese su contraseña';
+                        if (v.length < 6) return 'Mínimo 6 caracteres';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 28),
+
+                    ElevatedButton(
                       onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade400,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 0,
-                      ),
                       child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
+                          ? SizedBox(
+                              width: 22,
+                              height: 22,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(scheme.onPrimary),
                               ),
                             )
-                          : const Text(
-                              'INGRESAR',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                                color: Colors.white,
-                              ),
-                            ),
+                          : const Text('INGRESAR'),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Versión (opcional)
-                  Text(
-                    'Versión de Gestión LogiTrack v1.0',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
-                      fontSize: 12,
+                    const SizedBox(height: 20),
+                    Text(
+                      'LogiTrack v1.0',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(color: c.muted),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: Theme.of(context).appColors.muted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1,
       ),
     );
   }

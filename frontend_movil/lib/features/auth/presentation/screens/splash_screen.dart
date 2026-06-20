@@ -39,7 +39,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (userRole == AppConstants.roleEncargadoAlmacen) {
         context.go(AppRoutes.warehouseHome);
       } else {
-        context.go(AppRoutes.transfers);
+        context.go(AppRoutes.inicio);
       }
     } else {
       // No hay sesión, ir al login

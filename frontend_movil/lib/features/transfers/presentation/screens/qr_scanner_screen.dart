@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/qr_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../widgets/reception_sheet.dart';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -89,18 +90,19 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         ),
       );
 
-      Future.delayed(const Duration(milliseconds: 1500), () {
+      Future.delayed(const Duration(milliseconds: 1500), () async {
         if (!mounted) return;
 
         if (widget.location == 'destination') {
-          // En destino el flujo continúa con la confirmación de recepción
-          context.pushReplacement('/reception', extra: {
-            'transferId': widget.transferId,
-            'transferCode': transfer?.transferCode ?? '#${widget.transferId}',
-            'originName': transfer?.originWarehouse?.name ?? 'Origen',
-            'destinationName':
-                transfer?.destinationWarehouse?.name ?? 'Destino',
-          });
+          // En destino el flujo continúa con la recepción (panel in-place)
+          await showReceptionSheet(
+            context,
+            transferId: widget.transferId,
+            transferCode: transfer?.transferCode ?? '#${widget.transferId}',
+            originName: transfer?.originWarehouse?.name,
+            destinationName: transfer?.destinationWarehouse?.name,
+          );
+          if (mounted) context.pop(); // cerrar el escáner
         } else {
           context.go('/'); // Navegar al home
         }
