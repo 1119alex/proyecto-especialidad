@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_state_views.dart';
@@ -45,7 +46,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             loading: () =>
                 const LoadingStateView(label: 'Cargando inventario...'),
             error: (e, _) => ErrorStateView(
-              message: e.toString().replaceFirst('Exception: ', ''),
+              message: friendlyError(e),
               onRetry: () => ref.refresh(inventoryProvider(warehouseId)),
             ),
             data: (items) {
@@ -75,11 +76,21 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   ),
                   if (lowCount > 0) _LowStockBanner(count: lowCount),
                   Expanded(
-                    child: filtered.isEmpty
+                    child: items.isEmpty
+                        ? const EmptyStateView(
+                            title: 'Inventario vacío',
+                            message:
+                                'Este almacén aún no tiene productos en '
+                                'inventario. El stock se registra al completar '
+                                'transferencias.',
+                            icon: Icons.inventory_2_outlined,
+                          )
+                        : filtered.isEmpty
                         ? const EmptyStateView(
                             title: 'Sin resultados',
-                            message: 'No hay productos que coincidan.',
-                            icon: Icons.inventory_2_outlined,
+                            message:
+                                'Ningún producto coincide con la búsqueda.',
+                            icon: Icons.search_off_rounded,
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),

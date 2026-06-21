@@ -103,6 +103,8 @@ WarehouseModel _$WarehouseModelFromJson(Map<String, dynamic> json) =>
       id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       address: json['address'] as String?,
+      latitude: WarehouseModel._coord(json['latitude']),
+      longitude: WarehouseModel._coord(json['longitude']),
     );
 
 Map<String, dynamic> _$WarehouseModelToJson(WarehouseModel instance) =>
@@ -110,6 +112,8 @@ Map<String, dynamic> _$WarehouseModelToJson(WarehouseModel instance) =>
       'id': instance.id,
       'name': instance.name,
       'address': instance.address,
+      'latitude': instance.latitude,
+      'longitude': instance.longitude,
     };
 
 VehicleModel _$VehicleModelFromJson(Map<String, dynamic> json) => VehicleModel(

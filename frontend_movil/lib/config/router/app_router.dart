@@ -5,13 +5,11 @@ import '../../shared/providers/auth_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/transfers/presentation/screens/transfer_detail_screen.dart';
+import '../../features/transfers/presentation/screens/transfer_detail_route.dart';
 import '../../features/transfers/presentation/screens/qr_scanner_screen.dart';
 import '../../features/transfers/presentation/screens/universal_scanner_screen.dart';
 import '../../features/transfers/presentation/screens/qr_display_screen.dart';
 import '../../features/transfers/presentation/screens/gps_tracking_screen.dart';
-import '../../features/transfers/presentation/screens/reception_screen.dart';
-import '../../features/warehouse/presentation/screens/warehouse_home_screen.dart';
 import '../../features/main/presentation/screens/app_shell.dart';
 import '../../features/main/presentation/screens/role_tabs.dart';
 import '../../features/notifications/presentation/screens/alerts_screen.dart';
@@ -110,12 +108,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) => AppRoutes.inicio,
       ),
 
-      // Warehouse Home (Encargado de Almacén) — se integra al shell en la Fase 4
-      GoRoute(
-        path: AppRoutes.warehouseHome,
-        builder: (context, state) => const WarehouseHomeScreen(),
-      ),
-
       // Shell persistente: barra inferior única, una rama por pestaña.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -156,12 +148,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Detalle de transferencia (se abre sobre el shell)
+      // Deep-link al detalle: abre el panel in-place (no pantalla legacy)
       GoRoute(
         path: AppRoutes.transferDetail,
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return TransferDetailScreen(transferId: id);
+          return TransferDetailRoute(transferId: id);
         },
       ),
       GoRoute(
@@ -217,20 +209,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             transferId: extra['transferId'] as int,
             transferCode: extra['transferCode'] as String,
             status: extra['status'] as String,
-          );
-        },
-      ),
-
-      // Reception
-      GoRoute(
-        path: AppRoutes.reception,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return ReceptionScreen(
-            transferId: extra['transferId'] as int,
-            transferCode: extra['transferCode'] as String,
-            originName: extra['originName'] as String,
-            destinationName: extra['destinationName'] as String,
           );
         },
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_state_views.dart';
@@ -38,7 +39,7 @@ class _WarehouseDashboardScreenState
             loading: () => const LoadingStateView(label: 'Cargando...'),
             error: (e, _) => _scrollable(
               ErrorStateView(
-                message: e.toString().replaceFirst('Exception: ', ''),
+                message: friendlyError(e),
                 onRetry: () => ref.read(transfersProvider.notifier).refresh(),
               ),
             ),

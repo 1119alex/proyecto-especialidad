@@ -7,8 +7,12 @@ class ApiClient {
   late final Dio _dio;
   final FlutterSecureStorage _secureStorage;
 
+  /// Se invoca cuando una respuesta es 401 (sesión expirada).
+  final void Function()? onUnauthorized;
+
   ApiClient({
     required FlutterSecureStorage secureStorage,
+    this.onUnauthorized,
     String? baseUrl,
   }) : _secureStorage = secureStorage {
     _dio = Dio(
@@ -42,11 +46,10 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (error, handler) async {
-          // Manejo de errores
+          // Sesión expirada / token inválido
           if (error.response?.statusCode == 401) {
-            // Token expirado - limpiar storage
             await _secureStorage.deleteAll();
-            // Aquí podrías navegar al login
+            onUnauthorized?.call();
           }
           return handler.next(error);
         },

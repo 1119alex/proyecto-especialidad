@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/transfer_status_style.dart';
 import '../../../../shared/providers/auth_provider.dart';
@@ -88,10 +89,7 @@ class TransfersListScreen extends ConsumerWidget {
     );
   }
 
-  static String _humanizeError(Object error) {
-    final msg = error.toString().replaceFirst('Exception: ', '');
-    return msg.isEmpty ? 'Ocurrió un error inesperado.' : msg;
-  }
+  static String _humanizeError(Object error) => friendlyError(error);
 }
 
 // ============================ HEADER ============================
@@ -232,6 +230,9 @@ class _ActiveTrip extends StatelessWidget {
   }
 }
 
+String _hhmm(DateTime d) =>
+    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
 class _ActiveTripCard extends StatelessWidget {
   const _ActiveTripCard({required this.transfer});
   final TransferEntity transfer;
@@ -324,6 +325,23 @@ class _ActiveTripCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (isTransit && transfer.estimatedArrivalTime != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.schedule, color: Colors.white70, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  'Llega ~${_hhmm(transfer.estimatedArrivalTime!)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,

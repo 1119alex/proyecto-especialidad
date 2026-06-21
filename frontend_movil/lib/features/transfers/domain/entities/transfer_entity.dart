@@ -129,12 +129,18 @@ class WarehouseEntity {
   final int id;
   final String name;
   final String? address;
+  final double? latitude;
+  final double? longitude;
 
   const WarehouseEntity({
     required this.id,
     required this.name,
     this.address,
+    this.latitude,
+    this.longitude,
   });
+
+  bool get hasCoordinates => latitude != null && longitude != null;
 }
 
 /// Entidad simplificada para Vehicle
@@ -156,11 +162,7 @@ class UserEntity {
   final String name;
   final String email;
 
-  const UserEntity({
-    required this.id,
-    required this.name,
-    required this.email,
-  });
+  const UserEntity({required this.id, required this.name, required this.email});
 }
 
 /// Entidad para Transfer Detail

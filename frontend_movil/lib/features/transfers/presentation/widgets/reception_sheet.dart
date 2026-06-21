@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/app_state_views.dart';
 import '../providers/transfers_provider.dart';
@@ -125,7 +126,7 @@ class _ReceptionSheetState extends ConsumerState<ReceptionSheet> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = e.toString().replaceFirst('Exception: ', '');
+          _error = friendlyError(e);
         });
       }
     }
@@ -191,7 +192,7 @@ class _ReceptionSheetState extends ConsumerState<ReceptionSheet> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(friendlyError(e)),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

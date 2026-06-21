@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/app_state_views.dart';
 import '../../../transfers/presentation/widgets/transfer_detail_sheet.dart';
@@ -41,7 +42,7 @@ class AlertsScreen extends ConsumerWidget {
         loading: () => const LoadingStateView(label: 'Cargando alertas...'),
         error: (e, _) => _ScrollableState(
           child: ErrorStateView(
-            message: e.toString().replaceFirst('Exception: ', ''),
+            message: friendlyError(e),
             onRetry: () => ref.read(notificationsProvider.notifier).refresh(),
           ),
         ),

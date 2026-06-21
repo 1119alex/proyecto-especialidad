@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/router/app_router.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/transfer_status_style.dart';
 import '../../../../shared/providers/auth_provider.dart';
@@ -63,7 +64,7 @@ class TransferDetailSheet extends ConsumerWidget {
                   loading: () => const LoadingStateView(label: 'Cargando...'),
                   error: (e, _) => ErrorStateView(
                     title: 'No se pudo cargar',
-                    message: e.toString().replaceFirst('Exception: ', ''),
+                    message: friendlyError(e),
                     onRetry: () => ref
                         .read(transferDetailProvider(transferId).notifier)
                         .refresh(),

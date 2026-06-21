@@ -129,12 +129,22 @@ class WarehouseModel {
   final int id;
   final String name;
   final String? address;
+  @JsonKey(fromJson: _coord)
+  final double? latitude;
+  @JsonKey(fromJson: _coord)
+  final double? longitude;
 
   WarehouseModel({
     required this.id,
     required this.name,
     this.address,
+    this.latitude,
+    this.longitude,
   });
+
+  /// El backend puede serializar lat/lng como número o string (decimal pg).
+  static double? _coord(dynamic v) =>
+      v == null ? null : double.tryParse(v.toString());
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) =>
       _$WarehouseModelFromJson(json);
@@ -146,6 +156,8 @@ class WarehouseModel {
       id: id,
       name: name,
       address: address,
+      latitude: latitude,
+      longitude: longitude,
     );
   }
 }
@@ -203,11 +215,7 @@ class DriverModel {
   String get fullName => '$firstName $lastName';
 
   UserEntity toEntity() {
-    return UserEntity(
-      id: id,
-      name: fullName,
-      email: email,
-    );
+    return UserEntity(id: id, name: fullName, email: email);
   }
 }
 

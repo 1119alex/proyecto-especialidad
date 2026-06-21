@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../../core/errors/error_messages.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/status_badge.dart';
 import '../../../../services/gps/tracking_buffer_service.dart';
+import '../../domain/route_progress.dart';
 import '../providers/transfers_provider.dart';
 
 class GPSTrackingScreen extends ConsumerStatefulWidget {
@@ -43,15 +47,12 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   @override
   void dispose() {
     _elapsedTimer?.cancel();
-    // No se detiene el tracking: sigue activo aunque se salga de la pantalla
-    // (el servicio captura por distancia y sincroniza por lotes). Solo se
-    // desengancha la UI; el tracking termina al confirmar la llegada.
+    // No se detiene el tracking: sigue activo aunque se salga de la pantalla.
     _trackingService.onPosition = null;
     super.dispose();
   }
 
   Future<void> _initializeTracking() async {
-    // Check location permissions
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -60,31 +61,18 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         return;
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
       _showPermissionDeniedDialog();
       return;
     }
-
-    // Start tracking
     await _startTracking();
   }
 
   Future<void> _startTracking() async {
-    setState(() {
-      _isTracking = true;
-    });
-
-    // Update elapsed time every minute
+    setState(() => _isTracking = true);
     _elapsedTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (_isTracking && mounted) {
-        setState(() {
-          _elapsedMinutes++;
-        });
-      }
+      if (_isTracking && mounted) setState(() => _elapsedMinutes++);
     });
-
-    // Captura adaptativa por distancia + buffer offline + envío por lotes
     await _trackingService.start(
       widget.transferId,
       onPosition: _onPositionUpdate,
@@ -92,75 +80,54 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
     );
   }
 
-  /// El backend detectó la llegada al destino por geocerca (RF11)
   void _onGeofenceArrival() {
     if (!mounted) return;
-
-    setState(() {
-      _isTracking = false;
-    });
-
+    setState(() => _isTracking = false);
     ref.invalidate(transfersProvider);
     ref.invalidate(transferDetailProvider(widget.transferId));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.location_on, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '¡Llegada al destino detectada automáticamente! '
-                'El almacén ya fue notificado.',
-                style: TextStyle(fontSize: 15),
-              ),
-            ),
-          ],
+        content: Text(
+          '¡Llegada al destino detectada! El almacén ya fue notificado.',
         ),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 4),
       ),
     );
-
     Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (mounted) Navigator.of(context).pop();
     });
   }
 
   void _onPositionUpdate(Position position) {
     if (!mounted) return;
-
     setState(() {
       if (_currentPosition != null) {
-        final distance = Geolocator.distanceBetween(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          position.latitude,
-          position.longitude,
-        );
-        _totalDistance += distance / 1000; // Convert to km
+        _totalDistance +=
+            Geolocator.distanceBetween(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              position.latitude,
+              position.longitude,
+            ) /
+            1000;
       }
-
       _currentPosition = position;
-      _currentSpeed = position.speed * 3.6; // Convert m/s to km/h
+      _currentSpeed = position.speed * 3.6;
     });
   }
 
   void _showPermissionDeniedDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permiso de Ubicación'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Permiso de ubicación'),
         content: const Text(
-          'Esta aplicación necesita acceso a tu ubicación para el seguimiento GPS.',
+          'La app necesita acceso a tu ubicación para el seguimiento GPS.',
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
             child: const Text('Cerrar'),
@@ -173,75 +140,48 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   Future<void> _confirmArrival() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Llegada'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar llegada'),
         content: const Text('¿Has llegado al destino?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-            ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Confirmar'),
           ),
         ],
       ),
     );
-
     if (confirmed != true) return;
 
     try {
-      // Detener el tracking enviando los puntos pendientes antes de cerrar
-      setState(() {
-        _isTracking = false;
-      });
+      setState(() => _isTracking = false);
       await _trackingService.stop();
-
       final datasource = ref.read(transfersRemoteDatasourceProvider);
       await datasource.arriveDestination(widget.transferId);
-
       if (!mounted) return;
-
-      // Invalidar providers para refrescar
       ref.invalidate(transfersProvider);
       ref.invalidate(transferDetailProvider(widget.transferId));
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '¡Llegada confirmada! Ahora puedes escanear el QR en el almacén destino.',
-                  style: TextStyle(fontSize: 15),
-                ),
-              ),
-            ],
+          content: Text(
+            '¡Llegada confirmada! Ya puedes escanear el QR en destino.',
           ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
         ),
       );
-
-      // Volver a la pantalla anterior después de un delay
       Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        if (mounted) Navigator.of(context).pop();
       });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al confirmar llegada: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            content: Text(friendlyError(e)),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -250,349 +190,337 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-      '🏗️ Building GPS Tracking Screen - Transfer ID: ${widget.transferId}',
-    );
-    final progressPercentage = 0.58; // Mock progress
+    final theme = Theme.of(context);
+    final c = theme.appColors;
+
+    final transfer = ref
+        .watch(transferDetailProvider(widget.transferId))
+        .valueOrNull;
+    final origin = transfer?.originWarehouse;
+    final dest = transfer?.destinationWarehouse;
+    final progress = _currentPosition == null
+        ? null
+        : RouteProgress.compute(
+            originLat: origin?.latitude,
+            originLng: origin?.longitude,
+            destLat: dest?.latitude,
+            destLng: dest?.longitude,
+            curLat: _currentPosition!.latitude,
+            curLng: _currentPosition!.longitude,
+            speedKmh: _currentSpeed,
+          );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E293B),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text(
-          'Tracking GPS',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
+        title: const Text('Seguimiento GPS'),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFBBF24),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'EN TRÁNSITO',
-              style: TextStyle(
-                color: Color(0xFF1E293B),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(child: StatusBadge(widget.status, dense: true)),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Map container (placeholder for actual map)
-          Expanded(
-            flex: 2,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF334155),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF475569), width: 2),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: _currentPosition == null
-                    ? Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF059669), Color(0xFF047857)],
-                          ),
-                        ),
-                        child: const Center(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: c.surfaceAlt,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.colorScheme.outline),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: _currentPosition == null
+                      ? const Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Obteniendo ubicación...',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
+                              CircularProgressIndicator(),
+                              SizedBox(height: 14),
+                              Text('Obteniendo ubicación...'),
                             ],
                           ),
-                        ),
-                      )
-                    : Stack(
+                        )
+                      : _map(theme),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          FlutterMap(
-                            options: MapOptions(
-                              initialCenter: LatLng(
-                                _currentPosition!.latitude,
-                                _currentPosition!.longitude,
-                              ),
-                              initialZoom: 15.0,
-                              minZoom: 10.0,
-                              maxZoom: 18.0,
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.speed_rounded,
+                              label: 'Velocidad',
+                              value: '${_currentSpeed.toStringAsFixed(0)} km/h',
                             ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.logitrack.app',
-                              ),
-                              MarkerLayer(
-                                markers: [
-                                  // Current position marker
-                                  Marker(
-                                    point: LatLng(
-                                      _currentPosition!.latitude,
-                                      _currentPosition!.longitude,
-                                    ),
-                                    width: 60,
-                                    height: 60,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFFBBF24),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black26,
-                                            blurRadius: 8,
-                                            spreadRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.navigation,
-                                        color: Colors.white,
-                                        size: 28,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
                           ),
-                          // Location info overlay
-                          Positioned(
-                            top: 16,
-                            left: 16,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF1E293B,
-                                ).withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Posición actual',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                  Text(
-                                    'Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.access_time_rounded,
+                              label: 'Tiempo',
+                              value: '$_elapsedMinutes min',
                             ),
                           ),
                         ],
                       ),
-              ),
-            ),
-          ),
-
-          // Stats section
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Speed and Time stats
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.speed,
-                            label: 'Velocidad',
-                            value: '${_currentSpeed.toStringAsFixed(0)} km/h',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.access_time,
-                            label: 'Tiempo',
-                            value: '$_elapsedMinutes min',
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Distance and Status stats
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.route,
-                            label: 'Distancia',
-                            value: '${_totalDistance.toStringAsFixed(1)} km',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            icon: Icons.check_circle,
-                            label: 'Estado',
-                            value: _trackingStatus,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Progress bar
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Progreso del recorrido',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.route_rounded,
+                              label: 'Distancia',
+                              value: '${_totalDistance.toStringAsFixed(1)} km',
                             ),
-                            Text(
-                              '${(progressPercentage * 100).toInt()}%',
-                              style: const TextStyle(
-                                color: Color(0xFF3B82F6),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: progressPercentage,
-                            backgroundColor: const Color(0xFF475569),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF3B82F6),
-                            ),
-                            minHeight: 8,
                           ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Confirm arrival button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _confirmArrival,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF10B981),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _StatCard(
+                              icon: Icons.check_circle_outline,
+                              label: 'Estado',
+                              value: _trackingStatus,
+                            ),
                           ),
-                        ),
-                        child: const Text(
-                          'Confirmar Llegada',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _ProgressView(progress: progress),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _confirmArrival,
+                          icon: const Icon(Icons.check_rounded),
+                          label: const Text('Confirmar llegada'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            backgroundColor: c.success,
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
+  Widget _map(ThemeData theme) {
+    return Stack(
+      children: [
+        FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+            ),
+            initialZoom: 15.0,
+            minZoom: 10.0,
+            maxZoom: 18.0,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.logitrack.app',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    _currentPosition!.latitude,
+                    _currentPosition!.longitude,
+                  ),
+                  width: 56,
+                  height: 56,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.navigation,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Posición actual',
+                  style: TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Lat ${_currentPosition!.latitude.toStringAsFixed(5)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                Text(
+                  'Lng ${_currentPosition!.longitude.toStringAsFixed(5)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressView extends StatelessWidget {
+  const _ProgressView({required this.progress});
+  final RouteProgress? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.appColors;
+    final pct = progress?.percent;
+    final eta = progress?.eta;
+    final arrival = eta == null ? null : DateTime.now().add(eta);
+    String two(int n) => n.toString().padLeft(2, '0');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Progreso del recorrido',
+              style: theme.textTheme.bodySmall?.copyWith(color: c.muted),
+            ),
+            Text(
+              pct == null ? '—' : '${(pct * 100).round()}%',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: pct,
+            backgroundColor: c.surfaceAlt,
+            minHeight: 8,
+          ),
+        ),
+        if (progress != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 15, color: c.muted),
+              const SizedBox(width: 6),
+              Text(
+                'Faltan ${progress!.remainingKm.toStringAsFixed(1)} km',
+                style: theme.textTheme.bodySmall?.copyWith(color: c.muted),
+              ),
+              const Spacer(),
+              if (arrival != null)
+                Text(
+                  'Llega ~${two(arrival.hour)}:${two(arrival.minute)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ] else ...[
+          const SizedBox(height: 8),
+          Text(
+            'Calculando avance...',
+            style: theme.textTheme.bodySmall?.copyWith(color: c.muted),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.appColors;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF334155),
+        color: c.surfaceAlt,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF3B82F6), size: 20),
+          Icon(icon, color: theme.colorScheme.primary, size: 20),
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: theme.textTheme.bodySmall?.copyWith(color: c.muted),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],

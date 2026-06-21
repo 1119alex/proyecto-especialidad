@@ -27,9 +27,9 @@ final transfersRemoteDatasourceProvider =
 typedef TransfersRemoteDatasourceRef
     = AutoDisposeProviderRef<TransfersRemoteDatasource>;
 String _$transfersRepositoryHash() =>
-    r'114410206a8636bb2878550bacb1a8dc25bc66e0';
+    r'6e56f945cf51ef843f1666cd1f87411ca189a2d3';
 
-/// Provider del repository
+/// Provider del repository (offline-first: remoto + caché Drift)
 ///
 /// Copied from [transfersRepository].
 @ProviderFor(transfersRepository)
@@ -246,7 +246,7 @@ final transfersProvider =
 );
 
 typedef _$Transfers = AutoDisposeAsyncNotifier<List<TransferEntity>>;
-String _$transferDetailHash() => r'87d3cba852f43773cd92f1d2ef8e0e9898a7cc7e';
+String _$transferDetailHash() => r'ef3ce91b2de57ea305d140108f90686c32ed550b';
 
 abstract class _$TransferDetail
     extends BuildlessAutoDisposeAsyncNotifier<TransferEntity> {

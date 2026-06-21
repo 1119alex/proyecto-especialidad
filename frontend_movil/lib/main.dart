@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'services/api/api_client_provider.dart';
 import 'services/notifications/fcm_service_provider.dart';
 import 'shared/providers/auth_provider.dart';
+import 'shared/providers/session_provider.dart';
 
 /// Disponible solo si el proyecto tiene la configuración nativa de Firebase
 /// (android/app/google-services.json descargado de Firebase Console).
@@ -112,6 +113,23 @@ class _MainAppState extends ConsumerState<MainApp> {
       if (next.value?.isAuthenticated == true) {
         _setupPushNotifications();
       }
+    });
+
+    // Sesión expirada (401 en cualquier petición): cerrar sesión y al login
+    ref.listen(sessionExpiredProvider, (previous, next) {
+      if (previous == next) return;
+      final auth = ref.read(authProvider).valueOrNull;
+      if (auth?.isAuthenticated != true) return;
+      _fcmConfigured = false;
+      ref.read(authProvider.notifier).logout();
+      router.go(AppRoutes.login);
+      scaffoldMessengerKey.currentState
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Tu sesión expiró. Inicia sesión nuevamente.'),
+          ),
+        );
     });
 
     return MaterialApp.router(

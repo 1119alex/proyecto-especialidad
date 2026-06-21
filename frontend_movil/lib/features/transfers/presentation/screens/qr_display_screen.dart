@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../../../core/errors/error_messages.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/app_state_views.dart';
 import '../providers/qr_provider.dart';
 import '../providers/transfers_provider.dart';
 
@@ -25,270 +28,200 @@ class QRDisplayScreen extends ConsumerStatefulWidget {
 }
 
 class _QRDisplayScreenState extends ConsumerState<QRDisplayScreen> {
+  void _close() {
+    // Recargar la transferencia con el nuevo estado al salir
+    ref.invalidate(transferDetailProvider(widget.transferId));
+    ref.invalidate(transfersProvider);
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final qrAsync = ref.watch(transferQRProvider(widget.transferId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E293B),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
+        title: const Text('Código QR'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            // Invalidar cache para recargar la transferencia con el nuevo estado
-            ref.invalidate(transferDetailProvider(widget.transferId));
-            ref.invalidate(transfersProvider);
-            Navigator.of(context).pop();
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _close,
         ),
-        title: const Text(
-          'Código QR de Transferencia',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
       ),
-      body: qrAsync.when(
-        data: (qrData) => Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Transfer Info Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF334155),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'TRANSFERENCIA',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                          letterSpacing: 1.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.transferCode,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(color: Color(0xFF475569)),
-                      const SizedBox(height: 16),
-                      _buildInfoRow(
-                        Icons.warehouse,
-                        'Origen',
-                        widget.originName,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(
-                        Icons.location_on,
-                        'Destino',
-                        widget.destinationName,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildInfoRow(
-                        Icons.inventory_2,
-                        'Productos',
-                        '${widget.totalProducts} items',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Instruction Text
-                const Text(
-                  'Muestra este código QR al transportista',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 24),
-
-                // QR Code Container
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF3B82F6).withOpacity(0.3),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // QR Code
-                      QrImageView(
-                        data: qrData.qrCode,
-                        version: QrVersions.auto,
-                        size: 280,
-                        backgroundColor: Colors.white,
-                        errorCorrectionLevel: QrErrorCorrectLevel.H,
-                      ),
-                      const SizedBox(height: 16),
-                      // QR Code Text
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          qrData.qrCode,
-                          style: const TextStyle(
-                            color: Color(0xFF1E293B),
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // Instructions
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF334155).withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF3B82F6).withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.info_outline,
-                        color: Color(0xFF3B82F6),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'El transportista debe escanear este código para confirmar la recepción de la carga',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+      body: SafeArea(
+        child: qrAsync.when(
+          loading: () => const LoadingStateView(label: 'Generando QR...'),
+          error: (e, _) => ErrorStateView(
+            title: 'Error al obtener el QR',
+            message: friendlyError(e),
+            onRetry: () =>
+                ref.invalidate(transferQRProvider(widget.transferId)),
           ),
-        ),
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
-          ),
-        ),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Error al obtener QR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ref.invalidate(transferQRProvider(widget.transferId));
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          data: (qrData) => _content(context, qrData.qrCode),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _content(BuildContext context, String code) {
+    final theme = Theme.of(context);
+    final c = theme.appColors;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Tarjeta de información
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: c.surfaceAlt,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  widget.transferCode,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Divider(color: theme.colorScheme.outline),
+                const SizedBox(height: 14),
+                _InfoRow(
+                  icon: Icons.trip_origin,
+                  label: 'Origen',
+                  value: widget.originName,
+                ),
+                const SizedBox(height: 10),
+                _InfoRow(
+                  icon: Icons.location_on_outlined,
+                  label: 'Destino',
+                  value: widget.destinationName,
+                ),
+                const SizedBox(height: 10),
+                _InfoRow(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Productos',
+                  value: '${widget.totalProducts} ítems',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Muestra este código al transportista',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleSmall?.copyWith(color: c.muted),
+          ),
+          const SizedBox(height: 18),
+          // Recuadro del QR — SIEMPRE blanco para que sea escaneable
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: theme.colorScheme.outline),
+            ),
+            child: Column(
+              children: [
+                QrImageView(
+                  data: code,
+                  version: QrVersions.auto,
+                  size: 250,
+                  backgroundColor: Colors.white,
+                  errorCorrectionLevel: QrErrorCorrectLevel.H,
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    code,
+                    style: const TextStyle(
+                      color: Color(0xFF1E293B),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'El transportista escanea este código para confirmar la '
+                    'recogida de la carga.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = theme.appColors;
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF3B82F6), size: 20),
+        Icon(icon, color: theme.colorScheme.primary, size: 20),
         const SizedBox(width: 12),
+        Text(
+          '$label: ',
+          style: theme.textTheme.bodyMedium?.copyWith(color: c.muted),
+        ),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          child: Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
