@@ -47,8 +47,8 @@ export class TransfersController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.TRANSPORTISTA, UserRole.ENCARGADO_ALMACEN)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.transfersService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
+    return this.transfersService.findOne(id, user);
   }
 
   @Patch(':id')

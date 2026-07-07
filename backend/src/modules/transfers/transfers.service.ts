@@ -214,7 +214,7 @@ export class TransfersService {
     return [];
   }
 
-  async findOne(id: number): Promise<Transfer> {
+  async findOne(id: number, user?: User): Promise<Transfer> {
     const transfer = await this.transferRepository.findOne({
       where: { id },
       relations: [
@@ -231,6 +231,13 @@ export class TransfersService {
 
     if (!transfer) {
       throw new NotFoundException(`Transferencia con ID ${id} no encontrada`);
+    }
+
+    // Cuando la llamada trae usuario (endpoint público), se exige pertenencia
+    // de lectura. Las llamadas internas omiten `user` porque aplican su propia
+    // validación específica de la acción.
+    if (user) {
+      this.assertCanView(user, transfer);
     }
 
     return transfer;
@@ -524,6 +531,34 @@ export class TransfersService {
         `Solo el encargado del almacén correspondiente puede ${actionDescription}`,
       );
     }
+  }
+
+  /**
+   * Pertenencia de LECTURA: quién puede ver el detalle de una transferencia.
+   * ADMIN ve todo; el transportista solo las suyas; el encargado solo las que
+   * tocan su almacén (origen o destino). Evita fugas de información por ID.
+   */
+  private assertCanView(user: User, transfer: Transfer): void {
+    if (user.role === UserRole.ADMIN) return;
+
+    if (user.role === UserRole.TRANSPORTISTA) {
+      if (transfer.driverId === user.id) return;
+    }
+
+    if (user.role === UserRole.ENCARGADO_ALMACEN) {
+      const warehouseId = user.warehouseStaffProfile?.warehouseId;
+      if (
+        warehouseId &&
+        (transfer.originWarehouseId === warehouseId ||
+          transfer.destinationWarehouseId === warehouseId)
+      ) {
+        return;
+      }
+    }
+
+    throw new ForbiddenException(
+      'No tienes permiso para ver esta transferencia',
+    );
   }
 
   /** El usuario debe ser ADMIN o el transportista asignado a la transferencia. */

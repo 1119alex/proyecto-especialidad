@@ -290,6 +290,55 @@ describe('TransfersService', () => {
     });
   });
 
+  describe('findOne (pertenencia de lectura)', () => {
+    it('permite al ADMIN ver cualquier transferencia', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      const result = await service.findOne(1, makeUser());
+
+      expect(result.id).toBe(1);
+    });
+
+    it('permite al transportista asignado ver su transferencia', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      const result = await service.findOne(1, makeDriver(20));
+
+      expect(result.id).toBe(1);
+    });
+
+    it('rechaza a un transportista no asignado', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      await expect(service.findOne(1, makeDriver(99))).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('permite al encargado del almacén origen o destino', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      await expect(service.findOne(1, makeEncargado(1))).resolves.toBeDefined();
+      await expect(service.findOne(1, makeEncargado(2))).resolves.toBeDefined();
+    });
+
+    it('rechaza a un encargado de un almacén ajeno', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      await expect(service.findOne(1, makeEncargado(99))).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('sin usuario (llamada interna) no valida pertenencia', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+
+      const result = await service.findOne(1);
+
+      expect(result.id).toBe(1);
+    });
+  });
+
   describe('startPreparation', () => {
     it('rechaza a un encargado de otro almacén', async () => {
       mockTransferRepository.findOne.mockResolvedValue(
