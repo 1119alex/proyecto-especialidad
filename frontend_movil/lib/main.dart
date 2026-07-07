@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:logger/logger.dart';
 import 'config/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/notifications/presentation/providers/notifications_provider.dart';
 import 'services/api/api_client_provider.dart';
 import 'services/notifications/fcm_service_provider.dart';
 import 'shared/providers/auth_provider.dart';
@@ -64,6 +65,9 @@ class _MainAppState extends ConsumerState<MainApp> {
 
       fcmService.setupNotificationHandlers(
         onMessageReceived: (message) {
+          // Refrescar la lista/badge de alertas en vivo con la nueva notificación
+          ref.invalidate(notificationsProvider);
+
           // App en primer plano: mostrar como snackbar
           final notification = message.notification;
           if (notification == null) return;
@@ -89,6 +93,7 @@ class _MainAppState extends ConsumerState<MainApp> {
           );
         },
         onNotificationTapped: (message) {
+          ref.invalidate(notificationsProvider);
           // Navegar al detalle de la transferencia referida
           final data = ref.read(fcmServiceProvider).parseNotificationData(
                 message,

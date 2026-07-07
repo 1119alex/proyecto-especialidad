@@ -8,6 +8,7 @@ import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import '../../../../services/gps/tracking_buffer_service.dart';
+import '../../domain/entities/transfer_entity.dart';
 import '../../domain/route_progress.dart';
 import '../providers/transfers_provider.dart';
 
@@ -29,6 +30,7 @@ class GPSTrackingScreen extends ConsumerStatefulWidget {
 
 class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   late final TrackingBufferService _trackingService;
+  final MapController _mapController = MapController();
   Timer? _elapsedTimer;
   Position? _currentPosition;
   double _currentSpeed = 0.0;
@@ -36,6 +38,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   double _totalDistance = 0.0;
   final String _trackingStatus = 'Activo';
   bool _isTracking = false;
+  bool _routeFitted = false;
 
   @override
   void initState() {
@@ -47,9 +50,35 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   @override
   void dispose() {
     _elapsedTimer?.cancel();
+    _mapController.dispose();
     // No se detiene el tracking: sigue activo aunque se salga de la pantalla.
     _trackingService.onPosition = null;
     super.dispose();
+  }
+
+  /// Encuadra la cámara una sola vez para mostrar origen, destino y posición.
+  void _maybeFitRoute(WarehouseEntity? origin, WarehouseEntity? dest) {
+    if (_routeFitted || !mounted || _currentPosition == null) return;
+    final points = <LatLng>[
+      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      if (origin?.hasCoordinates ?? false)
+        LatLng(origin!.latitude!, origin.longitude!),
+      if (dest?.hasCoordinates ?? false)
+        LatLng(dest!.latitude!, dest.longitude!),
+    ];
+    if (points.length < 2) return;
+    try {
+      _mapController.fitCamera(
+        CameraFit.coordinates(
+          coordinates: points,
+          padding: const EdgeInsets.all(56),
+          maxZoom: 15,
+        ),
+      );
+      _routeFitted = true;
+    } catch (_) {
+      // El mapa aún no está listo: se reintenta en el siguiente frame.
+    }
   }
 
   Future<void> _initializeTracking() async {
@@ -198,6 +227,11 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         .valueOrNull;
     final origin = transfer?.originWarehouse;
     final dest = transfer?.destinationWarehouse;
+    if (_currentPosition != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeFitRoute(origin, dest),
+      );
+    }
     final progress = _currentPosition == null
         ? null
         : RouteProgress.compute(
@@ -245,7 +279,7 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
                             ],
                           ),
                         )
-                      : _map(theme),
+                      : _map(theme, origin, dest),
                 ),
               ),
             ),
@@ -321,17 +355,30 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
     );
   }
 
-  Widget _map(ThemeData theme) {
+  Widget _map(ThemeData theme, WarehouseEntity? origin, WarehouseEntity? dest) {
+    final scheme = theme.colorScheme;
+    final cur = LatLng(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+    );
+    final originLL = (origin?.hasCoordinates ?? false)
+        ? LatLng(origin!.latitude!, origin.longitude!)
+        : null;
+    final destLL = (dest?.hasCoordinates ?? false)
+        ? LatLng(dest!.latitude!, dest.longitude!)
+        : null;
+
+    // Línea de ruta: origen → posición actual → destino (con lo disponible).
+    final routePoints = <LatLng>[?originLL, cur, ?destLL];
+
     return Stack(
       children: [
         FlutterMap(
+          mapController: _mapController,
           options: MapOptions(
-            initialCenter: LatLng(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-            ),
-            initialZoom: 15.0,
-            minZoom: 10.0,
+            initialCenter: cur,
+            initialZoom: 14.0,
+            minZoom: 5.0,
             maxZoom: 18.0,
           ),
           children: [
@@ -339,13 +386,34 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.logitrack.app',
             ),
+            if (routePoints.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: routePoints,
+                    color: scheme.primary.withValues(alpha: 0.65),
+                    strokeWidth: 4,
+                  ),
+                ],
+              ),
             MarkerLayer(
               markers: [
-                Marker(
-                  point: LatLng(
-                    _currentPosition!.latitude,
-                    _currentPosition!.longitude,
+                if (originLL != null)
+                  _endpointMarker(
+                    point: originLL,
+                    color: theme.appColors.danger,
+                    icon: Icons.trip_origin,
+                    label: 'Origen',
                   ),
+                if (destLL != null)
+                  _endpointMarker(
+                    point: destLL,
+                    color: scheme.secondary,
+                    icon: Icons.location_on,
+                    label: 'Destino',
+                  ),
+                Marker(
+                  point: cur,
                   width: 56,
                   height: 56,
                   child: Container(
@@ -410,6 +478,53 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Marker _endpointMarker({
+    required LatLng point,
+    required Color color,
+    required IconData icon,
+    required String label,
+  }) {
+    return Marker(
+      point: point,
+      width: 96,
+      height: 58,
+      alignment: Alignment.topCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 6),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(height: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

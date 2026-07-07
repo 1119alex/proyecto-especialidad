@@ -101,6 +101,14 @@ class TransferStatusStyle {
       onSoftLight: Color(0xFF166534),
       onSoftDark: Color(0xFF86EFAC),
     ),
+    'COMPLETADA_CON_DISCREPANCIA': TransferStatusStyle(
+      label: 'COMPLETADA C/ DISCREPANCIA',
+      icon: Icons.rule_rounded,
+      base: Color(0xFFD97706),
+      softLight: Color(0xFFFEF3C7),
+      onSoftLight: Color(0xFF92400E),
+      onSoftDark: Color(0xFFFCD34D),
+    ),
     'CANCELADA': TransferStatusStyle(
       label: 'CANCELADA',
       icon: Icons.cancel_outlined,
