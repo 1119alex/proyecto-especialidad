@@ -19,40 +19,8 @@ Future<QRResponseModel> transferQR(TransferQRRef ref, int transferId) async {
   return datasource.getQRCode(transferId);
 }
 
-/// Provider para verificar QR
-@riverpod
-class QRVerifier extends _$QRVerifier {
-  @override
-  FutureOr<QRVerifyResponseModel?> build() {
-    return null;
-  }
-
-  /// Verificar QR escaneado
-  Future<QRVerifyResponseModel> verifyQR({
-    required int transferId,
-    required String qrCode,
-    required String location,
-  }) async {
-    state = const AsyncValue.loading();
-
-    try {
-      final datasource = ref.read(qrDatasourceProvider);
-      final result = await datasource.verifyQR(
-        transferId: transferId,
-        qrCode: qrCode,
-        location: location,
-      );
-
-      state = AsyncValue.data(result);
-      return result;
-    } catch (error, stackTrace) {
-      state = AsyncValue.error(error, stackTrace);
-      throw Exception('Error al verificar QR: $error');
-    }
-  }
-
-  /// Reset state
-  void reset() {
-    state = const AsyncValue.data(null);
-  }
-}
+// NOTA: la verificación de QR se hace llamando directamente al datasource
+// (qrDatasourceProvider) desde los escáneres. Antes existía aquí un notifier
+// QRVerifier (autoDispose) que nadie observaba: Riverpod lo desechaba durante
+// el await de la petición y al asignar `state` lanzaba "Bad state: Future
+// already completed" aunque el backend sí había verificado el QR.

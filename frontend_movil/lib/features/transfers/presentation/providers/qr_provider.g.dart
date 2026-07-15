@@ -184,22 +184,5 @@ class _TransferQRProviderElement
   int get transferId => (origin as TransferQRProvider).transferId;
 }
 
-String _$qRVerifierHash() => r'5cc671b88717a5d1c3996bac9780518f051f6076';
-
-/// Provider para verificar QR
-///
-/// Copied from [QRVerifier].
-@ProviderFor(QRVerifier)
-final qRVerifierProvider = AutoDisposeAsyncNotifierProvider<QRVerifier,
-    QRVerifyResponseModel?>.internal(
-  QRVerifier.new,
-  name: r'qRVerifierProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$qRVerifierHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-typedef _$QRVerifier = AutoDisposeAsyncNotifier<QRVerifyResponseModel?>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

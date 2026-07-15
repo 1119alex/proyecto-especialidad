@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/error_messages.dart';
+import '../../../../main.dart' show scaffoldMessengerKey;
 import '../providers/qr_provider.dart';
 import '../providers/transfers_provider.dart';
-import '../widgets/reception_sheet.dart';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
   final int transferId;
@@ -26,6 +27,12 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   bool isVerifying = false;
   String? lastScannedCode;
 
+  /// Guard SÍNCRONO de re-entrada. mobile_scanner dispara onDetect muchas veces
+  /// por segundo; sin este flag (puesto antes de cualquier await) dos detecciones
+  /// corren en paralelo y llaman cameraController.stop() dos veces, lo que lanza
+  /// "Bad state: Future already completed".
+  bool _processing = false;
+
   @override
   void dispose() {
     cameraController.dispose();
@@ -33,28 +40,27 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
   }
 
   Future<void> _onQRScanned(String qrCode) async {
-    if (!isScanning || isVerifying || lastScannedCode == qrCode) return;
-
+    if (_processing || lastScannedCode == qrCode) return;
+    _processing = true;
     lastScannedCode = qrCode;
 
-    // Detener el escáner inmediatamente
-    await cameraController.stop();
+    // Detener el escáner inmediatamente (protegido: puede estar ya detenido)
+    try {
+      await cameraController.stop();
+    } catch (_) {}
 
+    if (!mounted) return;
     setState(() {
       isScanning = false;
       isVerifying = true;
     });
 
     try {
-      // Capturar los datos de la transferencia antes de invalidar providers
-      // (se usan para abrir la pantalla de recepción en destino)
-      final transfer =
-          ref.read(transferDetailProvider(widget.transferId)).value;
-
-      // Verificar el QR con el backend
-      await ref
-          .read(qRVerifierProvider.notifier)
-          .verifyQR(
+      // Verificar el QR con el backend. Se llama al datasource directamente:
+      // el notifier QRVerifier era autoDispose sin oyentes y Riverpod lo
+      // desechaba durante el await, lo que lanzaba "Bad state: Future already
+      // completed" al volver la respuesta (aunque el backend SÍ verificaba).
+      final res = await ref.read(qrDatasourceProvider).verifyQR(
             transferId: widget.transferId,
             qrCode: qrCode,
             location: widget.location,
@@ -62,16 +68,27 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
 
       if (!mounted) return;
 
-      // Invalidar el provider de transfers para refrescar la lista
+      // El backend responde 200 con success=false cuando el QR no corresponde
+      // o el estado no es el esperado. Hay que respetarlo: antes se mostraba
+      // "verificado" siempre, ocultando el fallo real.
+      if (!res.success) {
+        _showError(res.message);
+        return;
+      }
+
+      // Éxito: refrescar la lista/detalle. El detalle (pantalla anterior) se
+      // recarga solo vía refreshAfter y muestra el siguiente paso: en destino
+      // el botón pasa a "Confirmar recepción"; en origen queda EN_TRANSITO.
       ref.invalidate(transfersProvider);
       ref.invalidate(transferDetailProvider(widget.transferId));
 
-      // Mostrar mensaje de éxito según ubicación
+      // El aviso va por el messenger global para que sobreviva al cierre de la
+      // cámara (el ScaffoldMessenger local desaparece al hacer pop).
       final successMessage = widget.location == 'origin'
-          ? 'QR verificado exitosamente. Iniciando tránsito...'
-          : 'QR verificado. Revise la mercancía y confirme la recepción.';
+          ? 'QR verificado. La transferencia está en tránsito.'
+          : 'QR verificado. Ahora confirma la recepción de la mercancía.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -90,26 +107,11 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
         ),
       );
 
-      Future.delayed(const Duration(milliseconds: 1500), () async {
-        if (!mounted) return;
-
-        if (widget.location == 'destination') {
-          // En destino el flujo continúa con la recepción (panel in-place)
-          await showReceptionSheet(
-            context,
-            transferId: widget.transferId,
-            transferCode: transfer?.transferCode ?? '#${widget.transferId}',
-            originName: transfer?.originWarehouse?.name,
-            destinationName: transfer?.destinationWarehouse?.name,
-          );
-          if (mounted) context.pop(); // cerrar el escáner
-        } else {
-          context.go('/'); // Navegar al home
-        }
-      });
+      // Cerrar la cámara y volver a la pantalla anterior (el detalle).
+      context.pop();
     } catch (e) {
       if (mounted) {
-        _showError('Error al verificar QR: ${e.toString()}');
+        _showError(friendlyError(e));
       }
     }
   }
@@ -121,6 +123,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
       isScanning = true;
       isVerifying = false;
       lastScannedCode = null; // Resetear para permitir otro escaneo
+      _processing = false; // Liberar el guard para reintentar
     });
 
     // Reiniciar el escáner

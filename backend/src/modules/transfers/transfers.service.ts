@@ -886,6 +886,17 @@ export class TransfersService {
       `QR generado para ${transfer.transferCode}; estado LISTA_DESPACHO (id=${id})`,
     );
 
+    // Avisar al transportista asignado que la carga ya está lista para recoger.
+    // Sin esto el conductor no tiene forma de enterarse de que puede escanear.
+    if (transfer.driverId) {
+      void this.notificationsService.notifyUser(transfer.driverId, {
+        type: NotificationType.PREPARACION,
+        title: 'Carga lista para despacho',
+        message: `La transferencia ${transfer.transferCode} está lista. Escanea el QR en el almacén de origen para iniciar el viaje.`,
+        transferId: transfer.id,
+      });
+    }
+
     const qrImage = await QRCode.toDataURL(qrData);
 
     return { qrCode: qrData, qrImage };

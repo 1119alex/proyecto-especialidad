@@ -37,17 +37,26 @@ class _UniversalScannerScreenState
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
+    // Guard SÍNCRONO antes de cualquier await: onDetect dispara muchas veces por
+    // segundo y sin esto dos detecciones llaman _controller.stop() en paralelo →
+    // "Bad state: Future already completed".
     if (_busy) return;
+    _busy = true;
     final raw = capture.barcodes
         .map((b) => b.rawValue)
         .firstWhere((v) => v != null, orElse: () => null);
-    if (raw == null) return;
+    if (raw == null) {
+      _busy = false; // no había QR legible en este frame; seguir escaneando
+      return;
+    }
+    if (mounted) setState(() {}); // reflejar estado ocupado en la UI
     await _handle(raw);
   }
 
   Future<void> _handle(String raw) async {
-    setState(() => _busy = true);
-    await _controller.stop();
+    try {
+      await _controller.stop();
+    } catch (_) {}
 
     final match = _idPattern.firstMatch(raw);
     if (match == null) {
@@ -61,6 +70,10 @@ class _UniversalScannerScreenState
     final id = int.parse(match.group(1)!);
 
     try {
+      // Leer el estado FRESCO del backend: si usamos el caché, un viaje que el
+      // encargado acaba de dejar "listo para despacho" se vería con el estado
+      // viejo y el escáner lo rechazaría con "Aún no está listo".
+      ref.invalidate(transferDetailProvider(id));
       final transfer = await ref.read(transferDetailProvider(id).future);
       final auth = ref.read(authProvider).value;
       final resolved = _resolve(transfer, auth?.userRole, auth?.warehouseId);
@@ -69,8 +82,11 @@ class _UniversalScannerScreenState
         return _result(_ScanResult.error(resolved.title!, resolved.message!));
       }
 
+      // Datasource directo: el notifier QRVerifier (autoDispose sin oyentes)
+      // se desechaba durante el await y lanzaba "Bad state: Future already
+      // completed" al asignar el resultado.
       final res = await ref
-          .read(qRVerifierProvider.notifier)
+          .read(qrDatasourceProvider)
           .verifyQR(transferId: id, qrCode: raw, location: resolved.location!);
 
       if (!res.success) {
@@ -150,7 +166,9 @@ class _UniversalScannerScreenState
         break;
       case 'retry':
         setState(() => _busy = false);
-        await _controller.start();
+        try {
+          await _controller.start();
+        } catch (_) {}
         break;
       default:
         if (mounted) context.pop();

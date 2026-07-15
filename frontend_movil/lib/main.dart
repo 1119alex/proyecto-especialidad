@@ -5,6 +5,7 @@ import 'package:logger/logger.dart';
 import 'config/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/notifications/presentation/providers/notifications_provider.dart';
+import 'features/transfers/presentation/providers/transfers_provider.dart';
 import 'services/api/api_client_provider.dart';
 import 'services/notifications/fcm_service_provider.dart';
 import 'shared/providers/auth_provider.dart';
@@ -67,6 +68,10 @@ class _MainAppState extends ConsumerState<MainApp> {
         onMessageReceived: (message) {
           // Refrescar la lista/badge de alertas en vivo con la nueva notificación
           ref.invalidate(notificationsProvider);
+          // Un push casi siempre implica un cambio de estado de transferencia
+          // (listo para despacho, en tránsito, llegada, recepción). Refrescar
+          // la lista/detalle para que se vea en vivo sin volver atrás.
+          ref.invalidate(transfersProvider);
 
           // App en primer plano: mostrar como snackbar
           final notification = message.notification;
@@ -94,6 +99,7 @@ class _MainAppState extends ConsumerState<MainApp> {
         },
         onNotificationTapped: (message) {
           ref.invalidate(notificationsProvider);
+          ref.invalidate(transfersProvider);
           // Navegar al detalle de la transferencia referida
           final data = ref.read(fcmServiceProvider).parseNotificationData(
                 message,
