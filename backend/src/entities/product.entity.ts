@@ -17,7 +17,7 @@ export class Product {
   @Column({ unique: true, length: 50 })
   sku: string;
 
-  @Column({ unique: true, length: 50, nullable: true })
+  @Column({ type: 'varchar', unique: true, length: 50, nullable: true })
   barcode: string | null;
 
   @Column({ length: 100 })
