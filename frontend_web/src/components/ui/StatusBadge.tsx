@@ -57,6 +57,9 @@ const STATUS_CONFIG: Record<TransferStatus, StatusConfig> = {
 export const getStatusLabel = (status: TransferStatus): string =>
   STATUS_CONFIG[status]?.label ?? status;
 
+export const getStatusDotClass = (status: TransferStatus): string =>
+  STATUS_CONFIG[status]?.dot ?? STATUS_CONFIG.PENDIENTE.dot;
+
 interface StatusBadgeProps {
   status: TransferStatus;
 }
