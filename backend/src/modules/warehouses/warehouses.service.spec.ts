@@ -196,5 +196,46 @@ describe('WarehousesService', () => {
       ).not.toHaveBeenCalled();
       expect(mockNotificationsService.notifyAdmins).not.toHaveBeenCalled();
     });
+
+    it('modo add suma al stock actual y registra ENTRADA', async () => {
+      // Stock previo 20 (mock) + 5 = 25
+      await service.adjustInventory(
+        1,
+        { productId: 5, quantity: 5, mode: 'add' },
+        1,
+      );
+
+      const movementCall = mockManager.save.mock.calls.find(
+        ([, value]: [unknown, any]) => value?.movementType !== undefined,
+      );
+      expect(movementCall?.[1]).toEqual(
+        expect.objectContaining({
+          movementType: 'ENTRADA',
+          previousQuantity: 20,
+          newQuantity: 25,
+          quantity: 5,
+        }),
+      );
+      // 25 >= mínimo 10 → sin alerta
+      expect(
+        mockNotificationsService.notifyWarehouseStaff,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('modo set (por defecto) fija el total y registra AJUSTE', async () => {
+      await service.adjustInventory(1, { productId: 5, quantity: 30 }, 1);
+
+      const movementCall = mockManager.save.mock.calls.find(
+        ([, value]: [unknown, any]) => value?.movementType !== undefined,
+      );
+      expect(movementCall?.[1]).toEqual(
+        expect.objectContaining({
+          movementType: 'AJUSTE',
+          previousQuantity: 20,
+          newQuantity: 30,
+          quantity: 10,
+        }),
+      );
+    });
   });
 });

@@ -168,9 +168,14 @@ export interface InventoryItem {
   warehouse?: Warehouse;
 }
 
+export type InventoryAdjustMode = 'add' | 'set';
+
 export interface AdjustInventoryDto {
   productId: number;
+  /** En modo 'add' es la cantidad a sumar; en 'set' es el total al que se fija. */
   quantity: number;
+  /** 'add' suma al stock actual (ENTRADA); 'set' fija el total (AJUSTE). */
+  mode?: InventoryAdjustMode;
   reason?: string;
 }
 

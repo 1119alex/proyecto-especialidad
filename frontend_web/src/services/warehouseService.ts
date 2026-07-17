@@ -53,7 +53,7 @@ export const warehouseService = {
     return response.data;
   },
 
-  // Fijar el stock de un producto (movimiento AJUSTE)
+  // Agregar (ENTRADA) o fijar (AJUSTE) el stock de un producto según dto.mode
   adjustInventory: async (
     id: number,
     data: AdjustInventoryDto,

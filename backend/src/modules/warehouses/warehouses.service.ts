@@ -237,18 +237,24 @@ export class WarehousesService {
         });
       }
 
+      const mode = dto.mode ?? 'set';
       const previousQuantity = Number(inventory.quantity);
-      inventory.quantity = dto.quantity;
+      const newQuantity =
+        mode === 'add' ? previousQuantity + dto.quantity : dto.quantity;
+
+      inventory.quantity = newQuantity;
       const result = await manager.save(Inventory, inventory);
 
       const movement = manager.create(InventoryMovement, {
         warehouseId,
         productId: dto.productId,
-        movementType: MovementType.AJUSTE,
-        quantity: Math.abs(dto.quantity - previousQuantity),
+        movementType: mode === 'add' ? MovementType.ENTRADA : MovementType.AJUSTE,
+        quantity: Math.abs(newQuantity - previousQuantity),
         previousQuantity,
-        newQuantity: dto.quantity,
-        reason: dto.reason || 'Ajuste manual de inventario',
+        newQuantity,
+        reason:
+          dto.reason ||
+          (mode === 'add' ? 'Entrada de stock' : 'Ajuste manual de inventario'),
         performedByUserId,
       });
       await manager.save(InventoryMovement, movement);
@@ -256,14 +262,17 @@ export class WarehousesService {
       return result;
     });
 
-    // Alerta de stock mínimo tras el ajuste (RF: alertas de inventario bajo)
+    // Alerta de stock mínimo tras el ajuste (RF: alertas de inventario bajo).
+    // Se compara contra la cantidad FINAL, no el valor del DTO (que en modo
+    // 'add' es solo el delta agregado).
+    const finalQuantity = Number(saved.quantity);
     const minStock = Number(product.minStock ?? 0);
-    if (minStock > 0 && dto.quantity < minStock) {
+    if (minStock > 0 && finalQuantity < minStock) {
       const params = {
         type: NotificationType.SISTEMA,
         title: 'Stock bajo',
         message:
-          `El stock de "${product.name}" quedó en ${dto.quantity} ` +
+          `El stock de "${product.name}" quedó en ${finalQuantity} ` +
           `(mínimo ${minStock}). Reponga el inventario.`,
         priority: NotificationPriority.HIGH,
       };
