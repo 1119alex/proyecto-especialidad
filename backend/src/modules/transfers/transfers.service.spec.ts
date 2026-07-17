@@ -194,6 +194,58 @@ describe('TransfersService', () => {
       );
     });
 
+    it('rechaza productos inactivos', async () => {
+      mockTransferRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      });
+      mockProductRepository.findOne.mockResolvedValue({
+        id: 5,
+        sku: 'SKU-5',
+        name: 'Producto 5',
+        unit: 'unidad',
+        isActive: false,
+      });
+
+      await expect(service.create(baseDto, 1)).rejects.toThrow(
+        /está inactivo/,
+      );
+    });
+
+    it('rechaza el mismo producto repetido en los detalles', async () => {
+      await expect(
+        service.create(
+          {
+            ...baseDto,
+            details: [
+              { productId: 5, quantity: 6 },
+              { productId: 5, quantity: 6 },
+            ],
+          },
+          1,
+        ),
+      ).rejects.toThrow(/repetir el mismo producto/);
+    });
+
+    it('rechaza si el origen no tiene stock registrado del producto', async () => {
+      mockTransferRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      });
+      mockProductRepository.findOne.mockResolvedValue({
+        id: 5,
+        sku: 'SKU-5',
+        name: 'Producto 5',
+        unit: 'unidad',
+        isActive: true,
+      });
+      mockInventoryRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.create(baseDto, 1)).rejects.toThrow(
+        /no tiene stock registrado/,
+      );
+    });
+
     it('rechaza si el stock registrado en origen es insuficiente', async () => {
       mockTransferRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -204,6 +256,7 @@ describe('TransfersService', () => {
         sku: 'SKU-5',
         name: 'Producto 5',
         unit: 'unidad',
+        isActive: true,
       });
       mockInventoryRepository.findOne.mockResolvedValue({
         warehouseId: 1,
@@ -226,6 +279,7 @@ describe('TransfersService', () => {
         sku: 'SKU-5',
         name: 'Producto 5',
         unit: 'unidad',
+        isActive: true,
       });
       mockInventoryRepository.findOne.mockResolvedValue({
         warehouseId: 1,
@@ -547,6 +601,72 @@ describe('TransfersService', () => {
       // cada uno guarda inventario + movimiento (8 saves) además de
       // detalles y transferencia (2 saves)
       expect(mockManager.save).toHaveBeenCalledTimes(10);
+    });
+
+    it('alerta stock bajo en origen cuando queda bajo el mínimo del producto', async () => {
+      const transfer = makeArrivedTransfer();
+      transfer.details = [
+        {
+          id: 1,
+          productId: 5,
+          productName: 'Producto 5',
+          quantityExpected: 8,
+          unit: 'unidad',
+          product: { id: 5, minStock: 15 },
+        } as TransferDetail,
+      ];
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      // Origen queda con 20 - 8 = 12 (< mínimo 15)
+      mockManager.findOne.mockImplementation(
+        async (_entity: any, options: any) =>
+          options.where.warehouseId === 1
+            ? { warehouseId: 1, productId: 5, quantity: '20' }
+            : null,
+      );
+
+      await service.complete(1, makeEncargado(2));
+
+      expect(
+        mockNotificationsService.notifyWarehouseStaff,
+      ).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          title: 'Stock bajo',
+          message: expect.stringContaining('quedó en 12'),
+        }),
+      );
+      expect(mockNotificationsService.notifyAdmins).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Stock bajo' }),
+      );
+    });
+
+    it('no alerta stock bajo si el origen queda sobre el mínimo', async () => {
+      const transfer = makeArrivedTransfer();
+      transfer.details = [
+        {
+          id: 1,
+          productId: 5,
+          productName: 'Producto 5',
+          quantityExpected: 2,
+          unit: 'unidad',
+          product: { id: 5, minStock: 5 },
+        } as TransferDetail,
+      ];
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      mockManager.findOne.mockImplementation(
+        async (_entity: any, options: any) =>
+          options.where.warehouseId === 1
+            ? { warehouseId: 1, productId: 5, quantity: '20' }
+            : null,
+      );
+
+      await service.complete(1, makeEncargado(2));
+
+      const lowStockCalls =
+        mockNotificationsService.notifyWarehouseStaff.mock.calls.filter(
+          (call) => call[1]?.title === 'Stock bajo',
+        );
+      expect(lowStockCalls).toHaveLength(0);
     });
 
     it('no permite que el stock de origen quede negativo', async () => {

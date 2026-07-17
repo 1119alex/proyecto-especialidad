@@ -36,7 +36,10 @@ const Products: React.FC = () => {
     }
 
     try {
-      await productService.delete(id);
+      const result = await productService.delete(id);
+      if (result && result.deleted === false) {
+        alert(result.message);
+      }
       await loadProducts();
     } catch (err) {
       alert('Error al eliminar el producto');
@@ -95,10 +98,16 @@ const Products: React.FC = () => {
                       Nombre
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
-                      Descripción
+                      Categoría
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Unidad
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider">
+                      Stock Total
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-muted uppercase tracking-wider">
+                      Mínimo
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Estado
@@ -111,24 +120,70 @@ const Products: React.FC = () => {
                 <tbody className="divide-y divide-edge">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-10 text-center text-ink-muted">
+                      <td colSpan={8} className="px-6 py-10 text-center text-ink-muted">
                         No hay productos registrados
                       </td>
                     </tr>
                   ) : (
-                    products.map((product) => (
+                    products.map((product) => {
+                      const inventory = product.inventory ?? [];
+                      const totalStock = inventory.reduce(
+                        (sum, item) => sum + Number(item.quantity),
+                        0,
+                      );
+                      const lowInWarehouses =
+                        product.minStock > 0 &&
+                        inventory.some(
+                          (item) => Number(item.quantity) < product.minStock,
+                        );
+                      const stockBreakdown = inventory
+                        .map(
+                          (item) =>
+                            `${item.warehouse?.name ?? `Almacén ${item.warehouseId}`}: ${Number(item.quantity)}`,
+                        )
+                        .join('\n');
+
+                      return (
                       <tr key={product.id} className="hover:bg-app transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-ink">
                           {product.sku}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink">
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-ink"
+                          title={product.description || undefined}
+                        >
                           {product.name}
                         </td>
-                        <td className="px-6 py-4 text-sm text-ink-soft max-w-xs truncate">
-                          {product.description || '-'}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
+                          {product.category || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-soft">
                           {product.unit}
+                        </td>
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm text-right"
+                          title={stockBreakdown || 'Sin stock registrado'}
+                        >
+                          <span
+                            className={`font-bold ${
+                              lowInWarehouses ? 'text-warning' : 'text-ink'
+                            }`}
+                          >
+                            {totalStock}
+                          </span>
+                          {inventory.length > 0 && (
+                            <span className="block text-xs text-ink-muted">
+                              en {inventory.length} almac{inventory.length === 1 ? 'én' : 'enes'}
+                            </span>
+                          )}
+                          {lowInWarehouses && (
+                            <span className="block text-xs font-semibold text-warning">
+                              Stock bajo
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-ink-soft">
+                          {product.minStock}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
@@ -156,7 +211,8 @@ const Products: React.FC = () => {
                           </button>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>

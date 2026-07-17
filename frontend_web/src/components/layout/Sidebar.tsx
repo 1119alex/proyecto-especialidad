@@ -41,6 +41,16 @@ const NAV_GROUPS: NavGroup[] = [
         ),
       },
       {
+        path: '/inventory',
+        label: 'Inventario',
+        icon: (
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M2 3a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" />
+            <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
         path: '/reports',
         label: 'Reportes',
         icon: (

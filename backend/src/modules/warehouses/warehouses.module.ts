@@ -8,6 +8,7 @@ import { User } from '../../entities/user.entity';
 import { Inventory } from '../../entities/inventory.entity';
 import { InventoryMovement } from '../../entities/inventory-movement.entity';
 import { Product } from '../../entities/product.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Product } from '../../entities/product.entity';
       InventoryMovement,
       Product,
     ]),
+    NotificationsModule,
   ],
   controllers: [WarehousesController],
   providers: [WarehousesService],

@@ -152,8 +152,26 @@ export interface Product {
   unit: string;
   minStock: number;
   isActive: boolean;
+  inventory?: InventoryItem[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Inventory types
+export interface InventoryItem {
+  id: number;
+  warehouseId: number;
+  productId: number;
+  quantity: number | string; // decimal de PostgreSQL llega como string
+  lastUpdated: string;
+  product?: Product;
+  warehouse?: Warehouse;
+}
+
+export interface AdjustInventoryDto {
+  productId: number;
+  quantity: number;
+  reason?: string;
 }
 
 export interface CreateProductDto {

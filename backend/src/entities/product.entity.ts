@@ -18,7 +18,7 @@ export class Product {
   sku: string;
 
   @Column({ unique: true, length: 50, nullable: true })
-  barcode: string;
+  barcode: string | null;
 
   @Column({ length: 100 })
   name: string;

@@ -71,6 +71,13 @@ export class TransfersService {
       );
     }
 
+    const productIds = createTransferDto.details.map((d) => d.productId);
+    if (new Set(productIds).size !== productIds.length) {
+      throw new BadRequestException(
+        'No se puede repetir el mismo producto en los detalles de la transferencia',
+      );
+    }
+
     const transferCode = await this.generateTransferCode();
 
     const transfer = new Transfer();
@@ -106,8 +113,14 @@ export class TransfersService {
         );
       }
 
-      // Si el almacén de origen tiene inventario registrado para el producto,
-      // exigir stock suficiente. Sin registro se permite (stock no inicializado).
+      if (!product.isActive) {
+        throw new BadRequestException(
+          `El producto "${product.name}" está inactivo y no puede incluirse en transferencias`,
+        );
+      }
+
+      // El origen debe tener stock registrado y suficiente: sin esta regla
+      // se podría "fabricar" inventario transfiriendo productos sin stock
       const originInventory = await this.inventoryRepository.findOne({
         where: {
           warehouseId: createTransferDto.originWarehouseId,
@@ -115,10 +128,14 @@ export class TransfersService {
         },
       });
 
-      if (
-        originInventory &&
-        Number(originInventory.quantity) < detail.quantity
-      ) {
+      if (!originInventory) {
+        throw new BadRequestException(
+          `El almacén de origen no tiene stock registrado de "${product.name}". ` +
+            `Registre su inventario antes de transferirlo.`,
+        );
+      }
+
+      if (Number(originInventory.quantity) < detail.quantity) {
         throw new BadRequestException(
           `Stock insuficiente de "${product.name}" en el almacén de origen ` +
             `(disponible: ${Number(originInventory.quantity)}, solicitado: ${detail.quantity})`,
@@ -678,6 +695,12 @@ export class TransfersService {
     transfer.completedAt = new Date();
 
     // Cierre atómico: detalles + transferencia + inventarios + movimientos
+    const lowStockAlerts: {
+      productName: string;
+      quantity: number;
+      minStock: number;
+    }[] = [];
+
     await this.dataSource.transaction(async (manager) => {
       await manager.save(TransferDetail, transfer.details);
       await manager.save(Transfer, transfer);
@@ -687,7 +710,7 @@ export class TransfersService {
         const receivedQty = Number(detail.quantityReceived);
 
         // Salida del almacén de origen (lo despachado)
-        await this.applyInventoryMovement(manager, {
+        const originQuantity = await this.applyInventoryMovement(manager, {
           warehouseId: transfer.originWarehouseId,
           productId: detail.productId,
           transferId: transfer.id,
@@ -696,6 +719,15 @@ export class TransfersService {
           performedByUserId: user.id,
           reason: `Salida por transferencia ${transfer.transferCode}`,
         });
+
+        const minStock = Number(detail.product?.minStock ?? 0);
+        if (minStock > 0 && originQuantity < minStock) {
+          lowStockAlerts.push({
+            productName: detail.productName,
+            quantity: originQuantity,
+            minStock,
+          });
+        }
 
         // Entrada al almacén de destino (lo efectivamente recibido)
         await this.applyInventoryMovement(manager, {
@@ -709,6 +741,10 @@ export class TransfersService {
         });
       }
     });
+
+    for (const alert of lowStockAlerts) {
+      this.notifyLowStock(transfer.originWarehouseId, alert);
+    }
 
     this.logger.log(
       `Transferencia ${transfer.transferCode} completada` +
@@ -741,7 +777,7 @@ export class TransfersService {
       performedByUserId: number;
       reason: string;
     },
-  ): Promise<void> {
+  ): Promise<number> {
     let inventory = await manager.findOne(Inventory, {
       where: {
         warehouseId: params.warehouseId,
@@ -779,6 +815,26 @@ export class TransfersService {
       performedByUserId: params.performedByUserId,
     });
     await manager.save(InventoryMovement, movement);
+
+    return newQuantity;
+  }
+
+  /** Alerta al personal del almacén y a los admins cuando el stock queda bajo el mínimo */
+  private notifyLowStock(
+    warehouseId: number,
+    alert: { productName: string; quantity: number; minStock: number },
+  ): void {
+    const params = {
+      type: NotificationType.SISTEMA,
+      title: 'Stock bajo',
+      message:
+        `El stock de "${alert.productName}" quedó en ${alert.quantity} ` +
+        `(mínimo ${alert.minStock}). Reponga el inventario.`,
+      priority: NotificationPriority.HIGH,
+    };
+
+    void this.notificationsService.notifyWarehouseStaff(warehouseId, params);
+    void this.notificationsService.notifyAdmins(params);
   }
 
   async cancel(

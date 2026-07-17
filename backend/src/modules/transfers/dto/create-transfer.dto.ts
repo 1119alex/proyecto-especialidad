@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -13,8 +14,9 @@ export class TransferDetailDto {
   @IsNotEmpty()
   productId: number;
 
+  // Positiva estricta: una cantidad 0 o negativa corrompería el inventario al completar
   @IsNumber()
-  @IsNotEmpty()
+  @IsPositive()
   quantity: number;
 }
 

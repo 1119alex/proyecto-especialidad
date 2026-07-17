@@ -12,6 +12,11 @@ import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { MovementType } from '../../common/enums/inventory-movement.enum';
+import {
+  NotificationType,
+  NotificationPriority,
+} from '../../common/enums/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class WarehousesService {
@@ -27,6 +32,7 @@ export class WarehousesService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(createWarehouseDto: CreateWarehouseDto): Promise<Warehouse> {
@@ -173,7 +179,7 @@ export class WarehousesService {
       );
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       let inventory = await manager.findOne(Inventory, {
         where: { warehouseId, productId: dto.productId },
       });
@@ -188,7 +194,7 @@ export class WarehousesService {
 
       const previousQuantity = Number(inventory.quantity);
       inventory.quantity = dto.quantity;
-      const saved = await manager.save(Inventory, inventory);
+      const result = await manager.save(Inventory, inventory);
 
       const movement = manager.create(InventoryMovement, {
         warehouseId,
@@ -202,8 +208,25 @@ export class WarehousesService {
       });
       await manager.save(InventoryMovement, movement);
 
-      return saved;
+      return result;
     });
+
+    // Alerta de stock mínimo tras el ajuste (RF: alertas de inventario bajo)
+    const minStock = Number(product.minStock ?? 0);
+    if (minStock > 0 && dto.quantity < minStock) {
+      const params = {
+        type: NotificationType.SISTEMA,
+        title: 'Stock bajo',
+        message:
+          `El stock de "${product.name}" quedó en ${dto.quantity} ` +
+          `(mínimo ${minStock}). Reponga el inventario.`,
+        priority: NotificationPriority.HIGH,
+      };
+      void this.notificationsService.notifyWarehouseStaff(warehouseId, params);
+      void this.notificationsService.notifyAdmins(params);
+    }
+
+    return saved;
   }
 
   // Nuevo método para obtener encargados disponibles (sin asignar)

@@ -1,5 +1,12 @@
 import api from './api';
-import { Warehouse, CreateWarehouseDto, UpdateWarehouseDto, User } from '../types';
+import {
+  Warehouse,
+  CreateWarehouseDto,
+  UpdateWarehouseDto,
+  User,
+  InventoryItem,
+  AdjustInventoryDto,
+} from '../types';
 
 export const warehouseService = {
   // Obtener todos los almacenes
@@ -35,5 +42,23 @@ export const warehouseService = {
   // Eliminar un almacén
   delete: async (id: number): Promise<void> => {
     await api.delete(`/warehouses/${id}`);
+  },
+
+  // Inventario del almacén
+  getInventory: async (id: number): Promise<InventoryItem[]> => {
+    const response = await api.get<InventoryItem[]>(`/warehouses/${id}/inventory`);
+    return response.data;
+  },
+
+  // Fijar el stock de un producto (movimiento AJUSTE)
+  adjustInventory: async (
+    id: number,
+    data: AdjustInventoryDto,
+  ): Promise<InventoryItem> => {
+    const response = await api.patch<InventoryItem>(
+      `/warehouses/${id}/inventory`,
+      data,
+    );
+    return response.data;
   },
 };

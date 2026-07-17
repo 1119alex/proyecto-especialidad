@@ -26,8 +26,11 @@ export const productService = {
     return response.data;
   },
 
-  // Eliminar un producto
-  delete: async (id: number): Promise<void> => {
-    await api.delete(`/products/${id}`);
+  // Eliminar un producto (el backend lo desactiva si tiene referencias)
+  delete: async (id: number): Promise<{ deleted: boolean; message: string }> => {
+    const response = await api.delete<{ deleted: boolean; message: string }>(
+      `/products/${id}`,
+    );
+    return response.data;
   },
 };

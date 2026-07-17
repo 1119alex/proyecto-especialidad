@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Warehouses from './pages/Warehouses';
 import Vehicles from './pages/Vehicles';
 import Products from './pages/Products';
+import Inventory from './pages/Inventory';
 import Users from './pages/Users';
 import Transfers from './pages/Transfers';
 import Reports from './pages/Reports';
@@ -48,6 +49,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Products />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <Inventory />
               </ProtectedRoute>
             }
           />

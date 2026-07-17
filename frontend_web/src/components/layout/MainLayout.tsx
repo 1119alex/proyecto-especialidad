@@ -30,6 +30,10 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     title: 'Productos',
     subtitle: 'Catálogo global de productos',
   },
+  '/inventory': {
+    title: 'Inventario',
+    subtitle: 'Existencias por almacén y ajustes de stock',
+  },
   '/users': {
     title: 'Usuarios',
     subtitle: 'Cuentas y roles del sistema',
