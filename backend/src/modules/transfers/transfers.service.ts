@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
@@ -16,6 +17,8 @@ import { Product } from '../../entities/product.entity';
 import { Inventory } from '../../entities/inventory.entity';
 import { InventoryMovement } from '../../entities/inventory-movement.entity';
 import { User } from '../../entities/user.entity';
+import { Vehicle } from '../../entities/vehicle.entity';
+import { Warehouse } from '../../entities/warehouse.entity';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { UpdateTransferDto } from './dto/update-transfer.dto';
 import { ReceivedQuantityDto } from './dto/complete-transfer.dto';
@@ -29,6 +32,7 @@ import {
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { MovementType } from '../../common/enums/inventory-movement.enum';
+import { VehicleStatus } from '../../common/enums/vehicle-status.enum';
 import * as QRCode from 'qrcode';
 
 @Injectable()
@@ -46,6 +50,12 @@ export class TransfersService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Inventory)
     private readonly inventoryRepository: Repository<Inventory>,
+    @InjectRepository(Vehicle)
+    private readonly vehicleRepository: Repository<Vehicle>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepository: Repository<Warehouse>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly trackingGateway: TrackingGateway,
@@ -75,6 +85,22 @@ export class TransfersService {
     if (new Set(productIds).size !== productIds.length) {
       throw new BadRequestException(
         'No se puede repetir el mismo producto en los detalles de la transferencia',
+      );
+    }
+
+    await this.assertActiveWarehouse(
+      createTransferDto.originWarehouseId,
+      'origen',
+    );
+    await this.assertActiveWarehouse(
+      createTransferDto.destinationWarehouseId,
+      'destino',
+    );
+
+    if (createTransferDto.vehicleId && createTransferDto.driverId) {
+      await this.assertVehicleAndDriverAssignable(
+        createTransferDto.vehicleId,
+        createTransferDto.driverId,
       );
     }
 
@@ -165,8 +191,9 @@ export class TransfersService {
 
     const result = await this.findOne(savedTransfer.id);
 
-    // Si nació asignada, notificar al transportista y al almacén origen
+    // Si nació asignada, ocupar el vehículo y notificar
     if (result.status === TransferStatus.ASIGNADA) {
+      await this.occupyVehicle(result.vehicleId);
       this.notifyAssignment(result);
     }
 
@@ -308,6 +335,24 @@ export class TransfersService {
       );
     }
 
+    // Si el PATCH toca la asignación, validar vehículo/conductor resultantes
+    const previousVehicleId = transfer.vehicleId;
+    const assignmentChanged =
+      (updateTransferDto.vehicleId !== undefined &&
+        updateTransferDto.vehicleId !== transfer.vehicleId) ||
+      (updateTransferDto.driverId !== undefined &&
+        updateTransferDto.driverId !== transfer.driverId);
+    const finalVehicleId = updateTransferDto.vehicleId ?? transfer.vehicleId;
+    const finalDriverId = updateTransferDto.driverId ?? transfer.driverId;
+
+    if (assignmentChanged && finalVehicleId && finalDriverId) {
+      await this.assertVehicleAndDriverAssignable(
+        finalVehicleId,
+        finalDriverId,
+        id,
+      );
+    }
+
     // Los detalles no se actualizan por esta vía
     const { details, ...updateData } = updateTransferDto;
 
@@ -341,11 +386,144 @@ export class TransfersService {
 
     const saved = await this.transferRepository.save(transfer);
 
+    // Mantener el ciclo del vehículo: liberar el anterior, ocupar el nuevo
+    if (assignmentChanged || becameAssigned) {
+      if (previousVehicleId && previousVehicleId !== saved.vehicleId) {
+        await this.releaseVehicle(previousVehicleId);
+      }
+      if (
+        saved.vehicleId &&
+        TransfersService.ACTIVE_STATUSES.includes(saved.status)
+      ) {
+        await this.occupyVehicle(saved.vehicleId);
+      }
+    }
+    if (updateTransferDto.status === TransferStatus.CANCELADA) {
+      await this.releaseVehicle(saved.vehicleId);
+    }
+
     if (becameAssigned) {
       this.notifyAssignment(await this.findOne(saved.id));
     }
 
     return saved;
+  }
+
+  /** Estados en los que la transferencia mantiene ocupados vehículo y conductor */
+  private static readonly ACTIVE_STATUSES: TransferStatus[] = [
+    TransferStatus.ASIGNADA,
+    TransferStatus.EN_PREPARACION,
+    TransferStatus.LISTA_DESPACHO,
+    TransferStatus.EN_TRANSITO,
+    TransferStatus.LLEGADA_DESTINO,
+  ];
+
+  /**
+   * Valida que el vehículo y el conductor existan, estén operativos y no
+   * tengan otra transferencia activa (evita la doble asignación).
+   */
+  private async assertVehicleAndDriverAssignable(
+    vehicleId: number,
+    driverId: number,
+    excludeTransferId?: number,
+  ): Promise<void> {
+    const vehicle = await this.vehicleRepository.findOne({
+      where: { id: vehicleId },
+    });
+    if (!vehicle) {
+      throw new NotFoundException(
+        `Vehículo con ID ${vehicleId} no encontrado`,
+      );
+    }
+    if (!vehicle.isAvailable) {
+      throw new BadRequestException(
+        `El vehículo ${vehicle.licensePlate} está dado de baja`,
+      );
+    }
+    if (vehicle.status !== VehicleStatus.DISPONIBLE) {
+      throw new BadRequestException(
+        `El vehículo ${vehicle.licensePlate} no está disponible ` +
+          `(estado actual: ${vehicle.status})`,
+      );
+    }
+
+    const driver = await this.userRepository.findOne({
+      where: { id: driverId },
+    });
+    if (!driver) {
+      throw new NotFoundException(
+        `Conductor con ID ${driverId} no encontrado`,
+      );
+    }
+    if (driver.role !== UserRole.TRANSPORTISTA || !driver.isActive) {
+      throw new BadRequestException(
+        'El conductor asignado debe ser un TRANSPORTISTA activo',
+      );
+    }
+
+    const busyQuery = this.transferRepository
+      .createQueryBuilder('t')
+      .where('t.status IN (:...statuses)', {
+        statuses: TransfersService.ACTIVE_STATUSES,
+      })
+      .andWhere('(t.vehicleId = :vehicleId OR t.driverId = :driverId)', {
+        vehicleId,
+        driverId,
+      });
+    if (excludeTransferId) {
+      busyQuery.andWhere('t.id != :excludeTransferId', { excludeTransferId });
+    }
+    const busy = await busyQuery.getOne();
+    if (busy) {
+      throw new ConflictException(
+        `El vehículo o el conductor ya están asignados a la transferencia ` +
+          `${busy.transferCode} (${busy.status})`,
+      );
+    }
+  }
+
+  /** Comprueba que el almacén exista y esté activo antes de usarlo en una transferencia */
+  private async assertActiveWarehouse(
+    warehouseId: number,
+    label: string,
+  ): Promise<void> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { id: warehouseId },
+    });
+    if (!warehouse) {
+      throw new NotFoundException(
+        `Almacén de ${label} con ID ${warehouseId} no encontrado`,
+      );
+    }
+    if (!warehouse.isActive) {
+      throw new BadRequestException(
+        `El almacén de ${label} "${warehouse.name}" está inactivo`,
+      );
+    }
+  }
+
+  /** Marca el vehículo como EN_USO al quedar asignado a una transferencia activa */
+  private async occupyVehicle(vehicleId?: number | null): Promise<void> {
+    if (!vehicleId) return;
+    const vehicle = await this.vehicleRepository.findOne({
+      where: { id: vehicleId },
+    });
+    if (vehicle && vehicle.status === VehicleStatus.DISPONIBLE) {
+      vehicle.status = VehicleStatus.EN_USO;
+      await this.vehicleRepository.save(vehicle);
+    }
+  }
+
+  /** Devuelve el vehículo a DISPONIBLE al cerrar o cancelar la transferencia */
+  private async releaseVehicle(vehicleId?: number | null): Promise<void> {
+    if (!vehicleId) return;
+    const vehicle = await this.vehicleRepository.findOne({
+      where: { id: vehicleId },
+    });
+    if (vehicle && vehicle.status === VehicleStatus.EN_USO) {
+      vehicle.status = VehicleStatus.DISPONIBLE;
+      await this.vehicleRepository.save(vehicle);
+    }
   }
 
   async assignVehicleAndDriver(
@@ -361,12 +539,15 @@ export class TransfersService {
       );
     }
 
+    await this.assertVehicleAndDriverAssignable(vehicleId, driverId, id);
+
     transfer.vehicleId = vehicleId;
     transfer.driverId = driverId;
     transfer.status = TransferStatus.ASIGNADA;
 
     const saved = await this.transferRepository.save(transfer);
 
+    await this.occupyVehicle(vehicleId);
     this.notifyAssignment(await this.findOne(saved.id));
 
     return saved;
@@ -746,6 +927,9 @@ export class TransfersService {
       this.notifyLowStock(transfer.originWarehouseId, alert);
     }
 
+    // El viaje terminó: el vehículo vuelve a estar disponible
+    await this.releaseVehicle(transfer.vehicleId);
+
     this.logger.log(
       `Transferencia ${transfer.transferCode} completada` +
         (hasDiscrepancies ? ' con discrepancias' : '') +
@@ -860,6 +1044,9 @@ export class TransfersService {
     transfer.cancelledAt = new Date();
 
     const saved = await this.transferRepository.save(transfer);
+
+    // Al cancelar, el vehículo queda liberado para otros viajes
+    await this.releaseVehicle(transfer.vehicleId);
 
     if (transfer.driverId) {
       void this.notificationsService.notifyUser(transfer.driverId, {

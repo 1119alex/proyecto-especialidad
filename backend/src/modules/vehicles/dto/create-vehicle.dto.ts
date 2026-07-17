@@ -1,4 +1,14 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsBoolean,
+  Max,
+  Min,
+} from 'class-validator';
 import { VehicleStatus } from '../../../common/enums/vehicle-status.enum';
 
 export class CreateVehicleDto {
@@ -11,11 +21,13 @@ export class CreateVehicleDto {
   model: string;
 
   @IsNumber()
+  @Min(1950)
+  @Max(2100)
   @IsOptional()
   year?: number;
 
   @IsNumber()
-  @IsNotEmpty()
+  @IsPositive()
   capacity: number;
 
   @IsEnum(VehicleStatus)

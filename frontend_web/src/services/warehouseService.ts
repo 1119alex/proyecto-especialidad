@@ -39,9 +39,12 @@ export const warehouseService = {
     return response.data;
   },
 
-  // Eliminar un almacén
-  delete: async (id: number): Promise<void> => {
-    await api.delete(`/warehouses/${id}`);
+  // Eliminar un almacén (el backend lo desactiva si tiene referencias)
+  delete: async (id: number): Promise<{ deleted: boolean; message: string }> => {
+    const response = await api.delete<{ deleted: boolean; message: string }>(
+      `/warehouses/${id}`,
+    );
+    return response.data;
   },
 
   // Inventario del almacén

@@ -10,6 +10,9 @@ import { TrackingLog } from '../../entities/tracking-log.entity';
 import { Product } from '../../entities/product.entity';
 import { Inventory } from '../../entities/inventory.entity';
 import { InventoryMovement } from '../../entities/inventory-movement.entity';
+import { Vehicle } from '../../entities/vehicle.entity';
+import { User } from '../../entities/user.entity';
+import { Warehouse } from '../../entities/warehouse.entity';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { InventoryMovement } from '../../entities/inventory-movement.entity';
       Product,
       Inventory,
       InventoryMovement,
+      Vehicle,
+      User,
+      Warehouse,
     ]),
     RealtimeModule,
     NotificationsModule,

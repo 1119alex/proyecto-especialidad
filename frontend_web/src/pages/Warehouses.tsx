@@ -36,7 +36,10 @@ const Warehouses: React.FC = () => {
     }
 
     try {
-      await warehouseService.delete(id);
+      const result = await warehouseService.delete(id);
+      if (result && result.deleted === false) {
+        alert(result.message);
+      }
       await loadWarehouses();
     } catch (err) {
       alert('Error al eliminar el almacén');

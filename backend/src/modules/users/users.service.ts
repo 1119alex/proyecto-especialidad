@@ -71,7 +71,18 @@ export class UsersService {
         emergencyPhone: createUserDto.emergencyPhone,
       });
     }
-    // Nota: Los encargados de almacén se asignan a través del formulario de almacenes
+
+    // Encargado con almacén indicado: crear el perfil de asignación
+    if (
+      createUserDto.role === UserRole.ENCARGADO_ALMACEN &&
+      createUserDto.warehouseId
+    ) {
+      await this.warehouseStaffRepository.save({
+        userId: savedUser.id,
+        warehouseId: createUserDto.warehouseId,
+        position: 'Encargado',
+      });
+    }
 
     return this.findOne(savedUser.id);
   }
@@ -124,6 +135,31 @@ export class UsersService {
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
+    const previousRole = user.role;
+
+    // Si se cambia el email, verificar que no esté en uso
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existing = await this.userRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+
+      if (existing) {
+        throw new ConflictException('El email ya está registrado');
+      }
+    }
+
+    // Validar ANTES de guardar: cambiar a TRANSPORTISTA exige datos de licencia
+    const roleChanged =
+      updateUserDto.role !== undefined && updateUserDto.role !== previousRole;
+    if (
+      roleChanged &&
+      updateUserDto.role === UserRole.TRANSPORTISTA &&
+      (!updateUserDto.licenseNumber || !updateUserDto.licenseExpiry)
+    ) {
+      throw new BadRequestException(
+        'Para cambiar el rol a TRANSPORTISTA debe indicar número de licencia y fecha de expiración',
+      );
+    }
 
     // Si se actualiza la contraseña
     if (updateUserDto.password) {
@@ -139,11 +175,18 @@ export class UsersService {
     Object.assign(user, updateUserDto);
     await this.userRepository.save(user);
 
-    // Actualizar perfil de conductor si es necesario
-    if (
-      user.role === UserRole.TRANSPORTISTA &&
-      (updateUserDto.licenseNumber || updateUserDto.licenseExpiry)
-    ) {
+    // Al cambiar de rol, eliminar los perfiles del rol anterior
+    if (roleChanged) {
+      if (previousRole === UserRole.TRANSPORTISTA) {
+        await this.driverProfileRepository.delete({ userId: id });
+      }
+      if (previousRole === UserRole.ENCARGADO_ALMACEN) {
+        await this.warehouseStaffRepository.delete({ userId: id });
+      }
+    }
+
+    // Actualizar/crear perfil de conductor si es necesario
+    if (user.role === UserRole.TRANSPORTISTA) {
       const driverProfile = await this.driverProfileRepository.findOne({
         where: { userId: id },
       });
@@ -156,10 +199,18 @@ export class UsersService {
           driverProfile.licenseExpiry = new Date(updateUserDto.licenseExpiry);
         }
         await this.driverProfileRepository.save(driverProfile);
+      } else if (updateUserDto.licenseNumber && updateUserDto.licenseExpiry) {
+        await this.driverProfileRepository.save({
+          userId: id,
+          licenseNumber: updateUserDto.licenseNumber,
+          licenseExpiry: new Date(updateUserDto.licenseExpiry),
+          emergencyContact: updateUserDto.emergencyContact,
+          emergencyPhone: updateUserDto.emergencyPhone,
+        });
       }
     }
 
-    // Actualizar perfil de encargado de almacén si es necesario
+    // Actualizar o crear perfil de encargado de almacén si es necesario
     if (
       user.role === UserRole.ENCARGADO_ALMACEN &&
       updateUserDto.warehouseId
@@ -171,6 +222,12 @@ export class UsersService {
       if (warehouseStaff) {
         warehouseStaff.warehouseId = updateUserDto.warehouseId;
         await this.warehouseStaffRepository.save(warehouseStaff);
+      } else {
+        await this.warehouseStaffRepository.save({
+          userId: id,
+          warehouseId: updateUserDto.warehouseId,
+          position: 'Encargado',
+        });
       }
     }
 

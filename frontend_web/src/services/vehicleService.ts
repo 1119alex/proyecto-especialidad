@@ -32,8 +32,11 @@ export const vehicleService = {
     return response.data;
   },
 
-  // Eliminar un vehículo
-  delete: async (id: number): Promise<void> => {
-    await api.delete(`/vehicles/${id}`);
+  // Eliminar un vehículo (el backend lo da de baja si tiene referencias)
+  delete: async (id: number): Promise<{ deleted: boolean; message: string }> => {
+    const response = await api.delete<{ deleted: boolean; message: string }>(
+      `/vehicles/${id}`,
+    );
+    return response.data;
   },
 };

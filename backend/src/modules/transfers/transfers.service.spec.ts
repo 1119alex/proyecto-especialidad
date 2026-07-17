@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,8 +18,11 @@ import { TrackingLog } from '../../entities/tracking-log.entity';
 import { Product } from '../../entities/product.entity';
 import { Inventory } from '../../entities/inventory.entity';
 import { User } from '../../entities/user.entity';
+import { Vehicle } from '../../entities/vehicle.entity';
+import { Warehouse } from '../../entities/warehouse.entity';
 import { TransferStatus } from '../../common/enums/transfer-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { VehicleStatus } from '../../common/enums/vehicle-status.enum';
 
 const TEST_SECRET = 'test-secret';
 
@@ -95,6 +99,40 @@ describe('TransfersService', () => {
     findOne: jest.fn(),
   };
 
+  // Por defecto: vehículo disponible, conductor transportista activo y
+  // almacenes activos; cada test sobrescribe con mockResolvedValueOnce
+  const mockVehicleEntityRepository = {
+    findOne: jest.fn(
+      async (opts: any): Promise<any> => ({
+        id: opts?.where?.id,
+        licensePlate: 'ABC-123',
+        status: VehicleStatus.DISPONIBLE,
+        isAvailable: true,
+      }),
+    ),
+    save: jest.fn(async (v: any) => v),
+  };
+
+  const mockUserEntityRepository = {
+    findOne: jest.fn(
+      async (opts: any): Promise<any> => ({
+        id: opts?.where?.id,
+        role: UserRole.TRANSPORTISTA,
+        isActive: true,
+      }),
+    ),
+  };
+
+  const mockWarehouseEntityRepository = {
+    findOne: jest.fn(
+      async (opts: any): Promise<any> => ({
+        id: opts?.where?.id,
+        name: `Almacén ${opts?.where?.id}`,
+        isActive: true,
+      }),
+    ),
+  };
+
   const mockManager = {
     save: jest.fn(async (_entity: any, value: any) => value),
     findOne: jest.fn(),
@@ -149,6 +187,18 @@ describe('TransfersService', () => {
         {
           provide: getRepositoryToken(Inventory),
           useValue: mockInventoryRepository,
+        },
+        {
+          provide: getRepositoryToken(Vehicle),
+          useValue: mockVehicleEntityRepository,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: mockUserEntityRepository,
+        },
+        {
+          provide: getRepositoryToken(Warehouse),
+          useValue: mockWarehouseEntityRepository,
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: ConfigService, useValue: mockConfigService },
@@ -227,6 +277,37 @@ describe('TransfersService', () => {
       ).rejects.toThrow(/repetir el mismo producto/);
     });
 
+    it('rechaza si el almacén de origen no existe', async () => {
+      mockWarehouseEntityRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.create(baseDto, 1)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('rechaza un almacén de destino inactivo', async () => {
+      mockWarehouseEntityRepository.findOne
+        .mockResolvedValueOnce({ id: 1, name: 'Central', isActive: true })
+        .mockResolvedValueOnce({ id: 2, name: 'Sur', isActive: false });
+
+      await expect(service.create(baseDto, 1)).rejects.toThrow(
+        /está inactivo/,
+      );
+    });
+
+    it('rechaza crear asignada con un vehículo que no está disponible', async () => {
+      mockVehicleEntityRepository.findOne.mockResolvedValueOnce({
+        id: 3,
+        licensePlate: 'ABC-123',
+        status: VehicleStatus.EN_USO,
+        isAvailable: true,
+      });
+
+      await expect(
+        service.create({ ...baseDto, vehicleId: 3, driverId: 20 }, 1),
+      ).rejects.toThrow(/no está disponible/);
+    });
+
     it('rechaza si el origen no tiene stock registrado del producto', async () => {
       mockTransferRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -297,6 +378,80 @@ describe('TransfersService', () => {
 
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
       expect(result.id).toBe(7);
+    });
+  });
+
+  describe('assignVehicleAndDriver', () => {
+    function mockBusyQuery(result: Partial<Transfer> | null) {
+      mockTransferRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(result),
+        getCount: jest.fn().mockResolvedValue(0),
+      });
+    }
+
+    it('rechaza si el vehículo no existe', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+      mockVehicleEntityRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.assignVehicleAndDriver(1, 99, 20)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('rechaza un vehículo dado de baja', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+      mockVehicleEntityRepository.findOne.mockResolvedValueOnce({
+        id: 3,
+        licensePlate: 'ABC-123',
+        status: VehicleStatus.DISPONIBLE,
+        isAvailable: false,
+      });
+
+      await expect(service.assignVehicleAndDriver(1, 3, 20)).rejects.toThrow(
+        /dado de baja/,
+      );
+    });
+
+    it('rechaza un conductor que no es transportista activo', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+      mockUserEntityRepository.findOne.mockResolvedValueOnce({
+        id: 20,
+        role: UserRole.ADMIN,
+        isActive: true,
+      });
+      mockBusyQuery(null);
+
+      await expect(service.assignVehicleAndDriver(1, 3, 20)).rejects.toThrow(
+        /TRANSPORTISTA activo/,
+      );
+    });
+
+    it('rechaza la doble asignación de vehículo o conductor', async () => {
+      mockTransferRepository.findOne.mockResolvedValue(makeTransfer());
+      mockBusyQuery({
+        transferCode: 'TRF2607170001',
+        status: TransferStatus.EN_TRANSITO,
+      });
+
+      await expect(service.assignVehicleAndDriver(1, 3, 20)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('asigna y marca el vehículo EN_USO', async () => {
+      const transfer = makeTransfer();
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      mockBusyQuery(null);
+
+      const result = await service.assignVehicleAndDriver(1, 3, 20);
+
+      expect(result.status).toBe(TransferStatus.ASIGNADA);
+      expect(result.vehicleId).toBe(3);
+      expect(mockVehicleEntityRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: VehicleStatus.EN_USO }),
+      );
     });
   });
 
@@ -667,6 +822,25 @@ describe('TransfersService', () => {
           (call) => call[1]?.title === 'Stock bajo',
         );
       expect(lowStockCalls).toHaveLength(0);
+    });
+
+    it('libera el vehículo (vuelve a DISPONIBLE) al completar', async () => {
+      const transfer = makeArrivedTransfer();
+      transfer.vehicleId = 3;
+      mockTransferRepository.findOne.mockResolvedValue(transfer);
+      mockManager.findOne.mockResolvedValue(null);
+      mockVehicleEntityRepository.findOne.mockResolvedValueOnce({
+        id: 3,
+        licensePlate: 'ABC-123',
+        status: VehicleStatus.EN_USO,
+        isAvailable: true,
+      });
+
+      await service.complete(1, makeEncargado(2));
+
+      expect(mockVehicleEntityRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: VehicleStatus.DISPONIBLE }),
+      );
     });
 
     it('no permite que el stock de origen quede negativo', async () => {

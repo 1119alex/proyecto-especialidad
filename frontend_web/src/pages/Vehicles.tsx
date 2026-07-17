@@ -36,7 +36,10 @@ const Vehicles: React.FC = () => {
     }
 
     try {
-      await vehicleService.delete(id);
+      const result = await vehicleService.delete(id);
+      if (result && result.deleted === false) {
+        alert(result.message);
+      }
       await loadVehicles();
     } catch (err) {
       alert('Error al eliminar el vehículo');

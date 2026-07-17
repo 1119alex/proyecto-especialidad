@@ -7,6 +7,7 @@ import { User } from '../../entities/user.entity';
 import { Inventory } from '../../entities/inventory.entity';
 import { InventoryMovement } from '../../entities/inventory-movement.entity';
 import { Product } from '../../entities/product.entity';
+import { Transfer } from '../../entities/transfer.entity';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
@@ -37,6 +38,8 @@ export class WarehousesService {
 
   async create(createWarehouseDto: CreateWarehouseDto): Promise<Warehouse> {
     const { managerId, ...warehouseData } = createWarehouseDto;
+
+    await this.assertCodeAvailable(warehouseData.code);
 
     // Si se proporciona un managerId, validar
     if (managerId) {
@@ -119,6 +122,10 @@ export class WarehousesService {
     const { managerId, ...warehouseData } = updateWarehouseDto;
     const warehouse = await this.findOne(id);
 
+    if (warehouseData.code && warehouseData.code !== warehouse.code) {
+      await this.assertCodeAvailable(warehouseData.code);
+    }
+
     // Actualizar datos del almacén
     Object.assign(warehouse, warehouseData);
     const updatedWarehouse = await this.warehouseRepository.save(warehouse);
@@ -138,13 +145,51 @@ export class WarehousesService {
     return updatedWarehouse;
   }
 
-  async remove(id: number): Promise<void> {
+  /**
+   * Elimina el almacén solo si nunca fue usado. Si tiene transferencias o
+   * inventario asociados se desactiva (soft delete): borrarlo rompería el
+   * historial y la base lo impediría por las claves foráneas.
+   */
+  async remove(id: number): Promise<{ deleted: boolean; message: string }> {
     const warehouse = await this.findOne(id);
+
+    const manager = this.warehouseRepository.manager;
+    const [transferRefs, inventoryRefs] = await Promise.all([
+      manager.count(Transfer, {
+        where: [{ originWarehouseId: id }, { destinationWarehouseId: id }],
+      }),
+      manager.count(Inventory, { where: { warehouseId: id } }),
+    ]);
+
+    if (transferRefs > 0 || inventoryRefs > 0) {
+      warehouse.isActive = false;
+      await this.warehouseRepository.save(warehouse);
+      return {
+        deleted: false,
+        message:
+          'El almacén tiene transferencias o inventario asociados, por lo que se desactivó en lugar de eliminarse',
+      };
+    }
 
     // Eliminar primero la relación de staff si existe
     await this.staffProfileRepository.delete({ warehouseId: id });
 
     await this.warehouseRepository.remove(warehouse);
+    return { deleted: true, message: 'Almacén eliminado' };
+  }
+
+  private async assertCodeAvailable(code?: string): Promise<void> {
+    if (!code) {
+      return;
+    }
+
+    const existing = await this.warehouseRepository.findOne({
+      where: { code },
+    });
+
+    if (existing) {
+      throw new ConflictException('El código del almacén ya está registrado');
+    }
   }
 
   // ===== INVENTARIO =====

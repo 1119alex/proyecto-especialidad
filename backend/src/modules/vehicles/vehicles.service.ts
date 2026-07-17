@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehicle } from '../../entities/vehicle.entity';
+import { Transfer } from '../../entities/transfer.entity';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleStatus } from '../../common/enums/vehicle-status.enum';
@@ -42,8 +43,9 @@ export class VehiclesService {
   }
 
   async findAvailable(): Promise<Vehicle[]> {
+    // isAvailable = sigue en la flota (baja lógica); status = estado operativo
     return this.vehicleRepository.find({
-      where: { status: VehicleStatus.DISPONIBLE },
+      where: { status: VehicleStatus.DISPONIBLE, isAvailable: true },
       order: { licensePlate: 'ASC' },
     });
   }
@@ -81,9 +83,31 @@ export class VehiclesService {
     return this.vehicleRepository.save(vehicle);
   }
 
-  async remove(id: number): Promise<void> {
+  /**
+   * Elimina el vehículo solo si nunca fue usado. Si tiene transferencias
+   * asociadas se da de baja (soft delete): borrarlo rompería el historial
+   * y la base lo impediría por las claves foráneas.
+   */
+  async remove(id: number): Promise<{ deleted: boolean; message: string }> {
     const vehicle = await this.findOne(id);
+
+    const transferRefs = await this.vehicleRepository.manager.count(Transfer, {
+      where: { vehicleId: id },
+    });
+
+    if (transferRefs > 0) {
+      vehicle.isAvailable = false;
+      vehicle.status = VehicleStatus.FUERA_SERVICIO;
+      await this.vehicleRepository.save(vehicle);
+      return {
+        deleted: false,
+        message:
+          'El vehículo tiene transferencias asociadas, por lo que se dio de baja en lugar de eliminarse',
+      };
+    }
+
     await this.vehicleRepository.remove(vehicle);
+    return { deleted: true, message: 'Vehículo eliminado' };
   }
 
   async updateStatus(id: number, status: VehicleStatus): Promise<Vehicle> {
