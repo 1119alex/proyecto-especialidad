@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import StockAdjustForm from '../components/inventory/StockAdjustForm';
+import KardexModal from '../components/inventory/KardexModal';
 import { StatCard } from '../components/ui/StatCard';
 import { StockMeter } from '../components/ui/StockMeter';
 import { warehouseService } from '../services/warehouseService';
@@ -17,6 +18,8 @@ const Inventory: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [showForm, setShowForm] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [kardexItem, setKardexItem] = useState<InventoryItem | null>(null);
+  const [showWarehouseKardex, setShowWarehouseKardex] = useState<boolean>(false);
 
   // Cargar catálogos una vez; se selecciona el primer almacén activo
   useEffect(() => {
@@ -107,16 +110,25 @@ const Inventory: React.FC = () => {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-bold text-ink">Inventario</h1>
-          <button
-            onClick={() => {
-              setEditingItem(null);
-              setShowForm(true);
-            }}
-            disabled={!selectedWarehouseId}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-strong transition disabled:opacity-50"
-          >
-            + Registrar Stock
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowWarehouseKardex(true)}
+              disabled={!selectedWarehouseId}
+              className="border border-edge text-ink-soft px-4 py-2 rounded-lg hover:bg-app transition disabled:opacity-50"
+            >
+              Ver historial
+            </button>
+            <button
+              onClick={() => {
+                setEditingItem(null);
+                setShowForm(true);
+              }}
+              disabled={!selectedWarehouseId}
+              className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-strong transition disabled:opacity-50"
+            >
+              + Registrar Stock
+            </button>
+          </div>
         </div>
 
         {/* Filtros */}
@@ -315,6 +327,12 @@ const Inventory: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
+                            onClick={() => setKardexItem(item)}
+                            className="text-ink-soft hover:text-ink mr-4"
+                          >
+                            Historial
+                          </button>
+                          <button
                             onClick={() => {
                               setEditingItem(item);
                               setShowForm(true);
@@ -334,7 +352,7 @@ const Inventory: React.FC = () => {
           </div>
         )}
 
-        {/* Modal */}
+        {/* Modal de ajuste */}
         {showForm && selectedWarehouse && (
           <StockAdjustForm
             warehouseId={selectedWarehouse.id}
@@ -343,6 +361,27 @@ const Inventory: React.FC = () => {
             products={products}
             existingProductIds={inventory.map((i) => i.productId)}
             onClose={handleFormClose}
+          />
+        )}
+
+        {/* Kardex por producto */}
+        {kardexItem && selectedWarehouse && (
+          <KardexModal
+            productId={kardexItem.productId}
+            warehouseId={selectedWarehouse.id}
+            title={kardexItem.product?.name ?? `Producto #${kardexItem.productId}`}
+            subtitle={`Historial de movimientos · ${selectedWarehouse.name}`}
+            onClose={() => setKardexItem(null)}
+          />
+        )}
+
+        {/* Kardex del almacén completo */}
+        {showWarehouseKardex && selectedWarehouse && (
+          <KardexModal
+            warehouseId={selectedWarehouse.id}
+            title={`Historial de ${selectedWarehouse.name}`}
+            subtitle="Todos los movimientos del almacén"
+            onClose={() => setShowWarehouseKardex(false)}
           />
         )}
       </div>

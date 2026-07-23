@@ -179,6 +179,41 @@ export interface AdjustInventoryDto {
   reason?: string;
 }
 
+// Kardex (historial de movimientos de inventario)
+export type MovementType = 'ENTRADA' | 'SALIDA' | 'AJUSTE';
+
+export interface KardexMovement {
+  id: number;
+  createdAt: string;
+  movementType: MovementType;
+  quantity: number;
+  previousQuantity: number;
+  newQuantity: number;
+  reason: string | null;
+  transferCode: string | null;
+  product: { id: number; sku: string; name: string; unit: string } | null;
+  warehouse: { id: number; name: string } | null;
+  performedBy: { id: number; name: string } | null;
+}
+
+export interface KardexResult {
+  summary: {
+    total: number;
+    entradas: number;
+    salidas: number;
+    ajustes: number;
+  };
+  movements: KardexMovement[];
+}
+
+export interface MovementFilters {
+  productId?: number;
+  warehouseId?: number;
+  movementType?: MovementType;
+  from?: string;
+  to?: string;
+}
+
 export interface CreateProductDto {
   name: string;
   sku: string;

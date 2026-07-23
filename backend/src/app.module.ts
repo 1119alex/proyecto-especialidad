@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { WarehousesModule } from './modules/warehouses/warehouses.module';
 import { ProductsModule } from './modules/products/products.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -45,6 +46,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     VehiclesModule,
     WarehousesModule,
     ProductsModule,
+    InventoryModule,
     TransfersModule,
     RealtimeModule,
     NotificationsModule,
