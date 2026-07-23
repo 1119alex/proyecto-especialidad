@@ -10,6 +10,7 @@ import '../../../../shared/widgets/status_badge.dart';
 import '../../../../services/gps/tracking_buffer_service.dart';
 import '../../domain/entities/transfer_entity.dart';
 import '../../domain/route_progress.dart';
+import '../providers/gps_tracking_provider.dart';
 import '../providers/transfers_provider.dart';
 
 class GPSTrackingScreen extends ConsumerStatefulWidget {
@@ -39,17 +40,26 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
   final String _trackingStatus = 'Activo';
   bool _isTracking = false;
   bool _routeFitted = false;
+  // Recorrido real ya registrado (se baja del backend y se refresca periódicamente)
+  List<LatLng> _history = [];
+  Timer? _historyTimer;
 
   @override
   void initState() {
     super.initState();
     _trackingService = ref.read(trackingBufferServiceProvider);
     _initializeTracking();
+    _loadHistory();
+    _historyTimer = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) => _loadHistory(),
+    );
   }
 
   @override
   void dispose() {
     _elapsedTimer?.cancel();
+    _historyTimer?.cancel();
     _mapController.dispose();
     // No se detiene el tracking: sigue activo aunque se salga de la pantalla.
     _trackingService.onPosition = null;
@@ -78,6 +88,27 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
       _routeFitted = true;
     } catch (_) {
       // El mapa aún no está listo: se reintenta en el siguiente frame.
+    }
+  }
+
+  /// Baja del backend el recorrido real ya registrado (puntos ordenados por
+  /// tiempo). Se combina con la posición actual para dibujar el trayecto vivo.
+  Future<void> _loadHistory() async {
+    try {
+      final raw = await ref
+          .read(gpsTrackingDatasourceProvider)
+          .getTrackingHistory(widget.transferId);
+      final pts = <LatLng>[];
+      for (final p in raw) {
+        // latitude/longitude llegan como String (columnas decimal de pg)
+        final lat = double.tryParse('${p['latitude']}');
+        final lng = double.tryParse('${p['longitude']}');
+        if (lat != null && lng != null) pts.add(LatLng(lat, lng));
+      }
+      if (mounted) setState(() => _history = pts);
+    } catch (_) {
+      // Sin conexión o error: se conserva lo que ya se tenga; la posición
+      // actual (punta viva) igual se dibuja.
     }
   }
 
@@ -368,8 +399,9 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
         ? LatLng(dest!.latitude!, dest.longitude!)
         : null;
 
-    // Línea de ruta: origen → posición actual → destino (con lo disponible).
-    final routePoints = <LatLng>[?originLL, cur, ?destLL];
+    // Recorrido real registrado + posición actual como punta viva (evita el
+    // desfase de hasta ~1 min mientras el último lote se sincroniza).
+    final traveled = <LatLng>[..._history, cur];
 
     return Stack(
       children: [
@@ -386,12 +418,12 @@ class _GPSTrackingScreenState extends ConsumerState<GPSTrackingScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.logitrack.app',
             ),
-            if (routePoints.length >= 2)
+            if (traveled.length >= 2)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points: routePoints,
-                    color: scheme.primary.withValues(alpha: 0.65),
+                    points: traveled,
+                    color: scheme.primary,
                     strokeWidth: 4,
                   ),
                 ],

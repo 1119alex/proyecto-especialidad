@@ -136,3 +136,15 @@ junit.xml
 .terraform/
 *.tfstate
 *.tfstate.backup
+
+# ====================================
+# Documentación (no es código, no se sube)
+# ====================================
+# Carpeta con Words, PDF de especificación y diagramas fuente
+/documentacion/
+
+# Red de seguridad: documentos ofimáticos y temporales/lock de Office
+# aunque queden sueltos fuera de la carpeta
+*.docx
+*.doc
+~$*
